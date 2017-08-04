@@ -1,6 +1,11 @@
 [package]
 name = "misc_utils"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Jonas Bushart <jonas@bushart.org>"]
 
 [dependencies]
+bzip2 = "0.3"
+error-chain = "0.11.0-rc.2"
+flate2 = "0.2"
+log = "0.3"
+xz2 = "0.1"
