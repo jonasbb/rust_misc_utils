@@ -7,7 +7,7 @@ use std::io::{BufReader, SeekFrom};
 use std::path::Path;
 use xz2::bufread::XzDecoder;
 
-/// Configure behaviour of the [`file_open_read_with_options`] function
+/// Configure behaviour of the [`file_open_read_with_options`] function.
 ///
 /// [`file_open_read_with_options`]: ./fn.file_open_read_with_options.html
 #[derive(Clone, Debug)]
@@ -17,7 +17,7 @@ pub struct ReadOptions {
 }
 
 impl ReadOptions {
-    /// Create a new `ReadOptions` with default settings
+    /// Create a new `ReadOptions` with default settings.
     pub fn new() -> Self {
         Self::default()
     }
@@ -30,7 +30,7 @@ impl ReadOptions {
         self
     }
 
-    /// Specify a set of [`OpenOptions`] to use
+    /// Specify a set of [`OpenOptions`] to use.
     ///
     /// The option `read` will always be overwritten to `true` and `write` will always be set to
     /// `false`.
@@ -51,7 +51,7 @@ impl Default for ReadOptions {
     }
 }
 
-/// Create reader for uncompressed or compressed files transparently
+/// Create reader for uncompressed or compressed files transparently.
 ///
 /// See [`file_open_read_with_options`] for the full documentation.
 ///
@@ -63,7 +63,7 @@ where
     file_open_read_with_option_do(file.as_ref(), ReadOptions::default())
 }
 
-/// Create reader for uncompressed or compressed files transparently
+/// Create reader for uncompressed or compressed files transparently.
 ///
 /// This function opens the given `file` and tries to determine the filetype by reading the magic
 /// bytes from the start of the file. If a known archive type, like xz, gz, or bz2, is found this
