@@ -1,6 +1,6 @@
 [package]
 name = "misc_utils"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Jonas Bushart <jonas@bushart.org>"]
 description = "A small collection of convenient and utility functions developed for personal use."
 repository = "https://github.com/jonasbb/rust_misc_utils"
