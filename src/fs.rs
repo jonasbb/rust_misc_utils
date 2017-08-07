@@ -232,11 +232,13 @@ impl WriteOptions {
 
 impl Default for WriteOptions {
     fn default() -> Self {
+        let mut open_options = OpenOptions::new();
+        open_options.create(true);
         Self {
             buffer_capacity: None,
             compression_level: Compression::default(),
             filetype: FileType::default(),
-            open_options: OpenOptions::new(),
+            open_options: open_options,
             threads: 1,
         }
     }

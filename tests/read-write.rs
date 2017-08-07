@@ -47,14 +47,13 @@ fn do_read_test(file: &Path) {
 
 #[test]
 fn test_write_plaintext() {
-    let options = WriteOptions::default().set_open_options(OpenOptions::new().create(true));
+    let options = WriteOptions::default();
     do_write_test(Path::new("./tests/data/lorem.txt"), options);
 }
 
 #[test]
 fn test_write_bzip2() {
     let options = WriteOptions::default()
-        .set_open_options(OpenOptions::new().create(true))
         .set_filetype(FileType::Bz2)
         .set_compression_level(Compression::Best);
     do_write_test(Path::new("./tests/data/lorem.txt.bz2"), options);
@@ -63,7 +62,6 @@ fn test_write_bzip2() {
 #[test]
 fn test_write_gzip() {
     let options = WriteOptions::default()
-        .set_open_options(OpenOptions::new().create(true))
         .set_filetype(FileType::Gz)
         .set_compression_level(Compression::Best);
     do_write_test(Path::new("./tests/data/lorem.txt.gz"), options);
@@ -72,7 +70,6 @@ fn test_write_gzip() {
 #[test]
 fn test_write_xz() {
     let options = WriteOptions::default()
-        .set_open_options(OpenOptions::new().create(true))
         .set_filetype(FileType::Xz)
         .set_compression_level(Compression::Best);
     do_write_test(Path::new("./tests/data/lorem.txt.xz"), options);
