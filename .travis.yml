@@ -21,4 +21,4 @@ script:
   - set -e
   - cargo build --verbose
   - cargo test --verbose
-  - ( test $TRAVIS_RUST_VERSION == "nightly" || cargo clippy )
+  - ( test $TRAVIS_RUST_VERSIO! != "nightly" || cargo clippy )
