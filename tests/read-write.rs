@@ -4,7 +4,7 @@ extern crate pretty_assertions;
 extern crate tempfile;
 
 use misc_utils::fs::*;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use tempfile::NamedTempFile;

@@ -121,7 +121,7 @@ fn file_open_read_with_option_do(file: &Path, mut options: ReadOptions) -> Resul
     )?;
 
     // check if file if XZ compressed
-    if buffer[..6] == [0xfd, '7' as u8, 'z' as u8, 'X' as u8, 'Z' as u8, 0x00] {
+    if buffer[..6] == [0xfd, b'7', b'z', b'X', b'Z', 0x00] {
         debug!("File {:?} is detected to have type `xz`", file);
         Ok(Box::new(XzDecoder::new(bufread)))
     } else if buffer[..2] == [0x1f, 0x8b] {
@@ -129,7 +129,7 @@ fn file_open_read_with_option_do(file: &Path, mut options: ReadOptions) -> Resul
         Ok(Box::new(MultiGzDecoder::new(bufread).chain_err(
             || "Failed to create the gz reader",
         )?))
-    } else if buffer[..3] == ['B' as u8, 'Z' as u8, 'h' as u8] {
+    } else if buffer[..3] == [b'B', b'Z', b'h'] {
         debug!("File {:?} is detected to have type `bz2`", file);
         Ok(Box::new(BzDecoder::new(bufread)))
     } else {
@@ -329,10 +329,9 @@ impl Into<bzip2::Compression> for Compression {
             Compression::Numeric(n) if n <= 3 => Fastest,
             Compression::Default => Default,
             Compression::Numeric(n) if 4 <= n && n <= 6 => Default,
-            Compression::Best => Best,
             Compression::Numeric(n) if 7 <= n && n <= 9 => Best,
-
-            // catchall for all value > 9
+            Compression::Best |
+            // catchall for all values > 9
             Compression::Numeric(_) => Best,
         }
     }
@@ -348,10 +347,9 @@ impl Into<flate2::Compression> for Compression {
             Compression::Numeric(n) if 1 <= n && n <= 3 => Fast,
             Compression::Default => Default,
             Compression::Numeric(n) if 4 <= n && n <= 6 => Default,
-            Compression::Best => Best,
             Compression::Numeric(n) if 7 <= n && n <= 9 => Best,
-
-            // catchall for all value > 9
+            Compression::Best |
+            // catchall for all values > 9
             Compression::Numeric(_) => Best,
         }
     }
