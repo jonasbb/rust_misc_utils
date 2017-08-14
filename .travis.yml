@@ -1,3 +1,6 @@
+notifications:
+  email: false
+
 language: rust
 
 rust:
@@ -12,7 +15,7 @@ matrix:
     - rust: nightly
 
 before_script:
-  - ( test $TRAVIS_RUST_VERSION == "nightly" || cargo install clippy )
+  - ( test $TRAVIS_RUST_VERSION != "nightly" || cargo install clippy )
 
 script:
   - set -e
