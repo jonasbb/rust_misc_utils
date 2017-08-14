@@ -358,6 +358,7 @@ impl Into<flate2::Compression> for Compression {
 /// Implementation detail to convert a [`Compression`] into a `u32` in the range `0-9` (inclusive).
 ///
 /// [`Compression`]: ./enum.Compression.html
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 struct XzCompression(u32);
 impl Into<XzCompression> for Compression {
     fn into(self) -> XzCompression {
