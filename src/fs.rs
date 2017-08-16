@@ -112,9 +112,11 @@ fn file_open_read_with_option_do(file: &Path, mut options: ReadOptions) -> Resul
 
     // read magic bytes
     let mut buffer = [0; 6];
-    bufread.read_exact(&mut buffer).chain_err(|| {
-        format!("Failed to read file header of {:?}", file)
-    })?;
+    if let Err(_) = bufread.read_exact(&mut buffer) {
+        // reset buffer into a valid state
+        // this will trigger the plaintext case below
+        buffer = [0; 6];
+    };
     // reset the read position
     bufread.seek(SeekFrom::Start(0)).chain_err(
         || "Failed to seek to start of file.",
