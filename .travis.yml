@@ -1,6 +1,15 @@
 notifications:
   email: false
 
+branches:
+  only:
+    # Enable building pull requests.
+    - master
+    # This is where pull requests from "bors r+" are built.
+    - staging
+    # This is where pull requests from "bors try" are built.
+    - trying
+
 language: rust
 
 rust:
