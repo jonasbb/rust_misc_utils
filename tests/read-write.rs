@@ -19,30 +19,35 @@ et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata
 sanctus est Lorem ipsum dolor sit amet."#;
 
 #[test]
+fn test_read_empty_file() {
+    do_read_test(Path::new("./tests/data/empty.txt"), "");
+}
+
+#[test]
 fn test_read_plaintext() {
-    do_read_test(Path::new("./tests/data/lorem.txt"));
+    do_read_test(Path::new("./tests/data/lorem.txt"), LOREM_IPSUM);
 }
 
 #[test]
 fn test_read_bz2() {
-    do_read_test(Path::new("./tests/data/lorem.txt.bz2"));
+    do_read_test(Path::new("./tests/data/lorem.txt.bz2"), LOREM_IPSUM);
 }
 
 #[test]
 fn test_read_gz() {
-    do_read_test(Path::new("./tests/data/lorem.txt.gz"));
+    do_read_test(Path::new("./tests/data/lorem.txt.gz"), LOREM_IPSUM);
 }
 
 #[test]
 fn test_read_xz() {
-    do_read_test(Path::new("./tests/data/lorem.txt.xz"));
+    do_read_test(Path::new("./tests/data/lorem.txt.xz"), LOREM_IPSUM);
 }
 
-fn do_read_test(file: &Path) {
+fn do_read_test(file: &Path, expected: &str) {
     let mut reader = file_open_read(Path::new(file)).unwrap();
     let mut content = String::new();
     reader.read_to_string(&mut content).unwrap();
-    assert_eq!(content, LOREM_IPSUM);
+    assert_eq!(content, expected);
 }
 
 #[test]
