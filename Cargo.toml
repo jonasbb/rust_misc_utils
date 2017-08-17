@@ -18,8 +18,23 @@ bzip2 = "0.3"
 error-chain = "0.11.0-rc.2"
 flate2 = "0.2"
 log = "0.3"
+serde = { version = "1.0", optional = true }
+serde_json = { version = "1.0", optional = true }
 xz2 = "0.1"
+
+[features]
+default = ["jsonl"]
+# A nice multi-threaded JSONL iterator which puts file reading and JSON parsing into its own
+# threads.
+jsonl = ["serde", "serde_json"]
 
 [dev-dependencies]
 pretty_assertions = "0.2"
+# Option dev-dependencies are not a thing :(
+serde_derive = "1.0"
 tempfile = "2.0"
+
+[package.metadata.docs.rs]
+# https://github.com/onur/docs.rs/pull/131
+all-features = true
+default-target = "x86_64-unknown-linux-gnu"
