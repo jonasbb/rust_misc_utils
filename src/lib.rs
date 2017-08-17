@@ -11,6 +11,10 @@ extern crate error_chain;
 extern crate flate2;
 #[macro_use]
 extern crate log;
+#[cfg(feature = "jsonl")]
+extern crate serde;
+#[cfg(feature = "jsonl")]
+extern crate serde_json;
 extern crate xz2;
 
 pub mod error;

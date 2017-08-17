@@ -1,15 +1,21 @@
 use bzip2;
 use bzip2::bufread::BzDecoder;
 use bzip2::write::BzEncoder;
-use error::*;
+use error::{Error, ErrorKind, Result, ResultExt};
 use flate2;
 use flate2::bufread::MultiGzDecoder;
 use flate2::write::GzEncoder;
+#[cfg(feature = "jsonl")]
+use serde::de::DeserializeOwned;
+#[cfg(feature = "jsonl")]
+use serde_json::Deserializer;
 use std::borrow::Borrow;
 use std::fs::OpenOptions;
-use std::io::prelude::*;
 use std::io::{BufReader, BufWriter, SeekFrom};
+use std::io::prelude::{BufRead, Read, Seek, Write};
 use std::path::Path;
+use std::sync::mpsc;
+use std::thread;
 use xz2::bufread::XzDecoder;
 use xz2::stream::{Check, MtStreamBuilder};
 use xz2::write::XzEncoder;
@@ -447,4 +453,219 @@ where
             }
         }
     }
+}
+
+/// Result type for [`parse_jsonl_multi_threaded`].
+///
+/// This enum encapsulates certain error conditions which can occur either during file I/O or JSON
+/// parsing and the data produced by it. Every user of the [`parse_jsonl_multi_threaded`] **must**
+/// verify that the last element of the iteration is the `Complete` variant, to ensure the whole
+/// file has been read and all lines could successfully parsed.
+///
+/// [`parse_jsonl_multi_threaded`]: ./fn.parse_jsonl_multi_threaded.html
+#[cfg(feature = "jsonl")]
+#[derive(Debug)]
+pub enum ProcessingStatus<T>
+where
+    T: 'static + Send,
+{
+    /// Indicates a successful completion of all steps.
+    /// Every user **must** verify that this element occurs during iteration.
+    Completed,
+    /// Wrapper for any user-defined datatype
+    Data(T),
+    /// Some error occured while opening or reading the file.
+    /// Created in the reader thread based on a [`std::io::Error`].
+    /// [`std::io::Error`]: https://doc.rust-lang.org/std/io/struct.Error.html
+    IoError(Error),
+    /// Some error occured while parsing a JSON value
+    /// Created in the parsing thread based on a [`serde_json::Error`][serde_json]
+    /// [serde_json]: https://docs.rs/serde_json/
+    ParsingError(Error),
+}
+
+/// Create a multi-threaded [JSONL] parser.
+///
+/// This returns an iterator for [`ProcessingStatus<T>`][`ProcessingStatus`] based on a file. A
+/// user **must** verify, that the last element of iteration is the `Completed` variant of
+/// [`ProcessingStatus`] to ensure that no errors have occured.
+///
+/// Internally this will spawn two threads. The first thread is responsible for reading from the
+/// underlying file. It uses [`file_open_read`] for this task, thus it also supports compressed
+/// files transparently. The second thread receives multiple lines as [`String`] and parses them
+/// into a `Vec<Result<T>>`. Then they are passed to the caller as a single iterator.
+///
+/// Since the processing is based on thread the communication overhead should be minimal. For this
+/// the `batchsize` can be specifies, which controls how many lines are read before passing them to
+/// the second thread and thus how large the vector will be.
+///
+/// [`file_open_read`]: ./fn.file_open_read.html
+/// [`ProcessingStatus`]: ./enum.ProcessingStatus.html
+/// [`String`]: https://doc.rust-lang.org/std/string/struct.String.html
+/// [JSONL]: http://jsonlines.org/
+#[cfg(feature = "jsonl")]
+pub fn parse_jsonl_multi_threaded<P, T>(
+    path: P,
+    batchsize: u32,
+) -> Box<Iterator<Item = ProcessingStatus<T>>>
+where
+    P: AsRef<Path>,
+    T: 'static + DeserializeOwned + Send,
+{
+    let path = path.as_ref().to_path_buf();
+    const CHAN_BUFSIZE: usize = 2;
+
+    // create channels
+    let (lines_sender, lines_receiver) = mpsc::sync_channel(CHAN_BUFSIZE);
+    let (struct_sender, struct_receiver) = mpsc::sync_channel(CHAN_BUFSIZE);
+
+    // spawn reader thread of file
+    thread::spawn(move || {
+        info!(
+            "Start background reading thread: {:?}",
+            thread::current().id()
+        );
+        let mut rdr = match file_open_read(&path) {
+            Ok(rdr) => BufReader::new(rdr),
+            Err(e) => {
+                warn!(
+                    "Background reading thread cannot open file {:?} {:?}",
+                    path,
+                    thread::current().id()
+                );
+                let e = e.chain_err(|| "Background reading thread cannot open file.");
+                // cannot communicate channel failures
+                let _ = lines_sender.send(ProcessingStatus::IoError(e));
+                return;
+            }
+        };
+        let mut is_eof = false;
+        while !is_eof {
+            let mut batch = String::new();
+            for _ in 0..batchsize {
+                match rdr.read_line(&mut batch) {
+                    Ok(0) => {
+                        is_eof = true;
+                        break;
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        warn!(
+                            "Background reading thread cannot read line {:?}",
+                            thread::current().id()
+                        );
+                        let e = Error::from(e).chain_err(
+                            || "Background reading thread cannot read line",
+                        );
+                        // cannot communicate channel failures
+                        let _ = lines_sender.send(ProcessingStatus::IoError(e));
+                        return;
+                    }
+                }
+            }
+            // cannot communicate channel failures
+            if lines_sender.send(ProcessingStatus::Data(batch)).is_err() {
+                // kill on sent error
+                return;
+            }
+            info!(
+                "Background reading thread: sent batch {:?}",
+                thread::current().id()
+            );
+        }
+        // cannot communicate channel failures
+        let _ = lines_sender.send(ProcessingStatus::Completed);
+        info!(
+            "Background reading thread: successful processed file {:?} {:?}",
+            path,
+            thread::current().id()
+        );
+    });
+
+    // spawn JSONL parser
+    thread::spawn(move || {
+        info!(
+            "Start background parsing thread {:?}",
+            thread::current().id()
+        );
+        let mut channel_successful_completed = false;
+        lines_receiver
+            .iter()
+            .map(|batch| {
+                match batch {
+                    ProcessingStatus::IoError(e) => {
+                        info!(
+                            "Background parsing thread: pass through error {:?}",
+                            thread::current().id()
+                        );
+                        // cannot communicate channel failures
+                        let _ = struct_sender.send(ProcessingStatus::IoError(e));
+                        return;
+                    }
+                    // not the success status for future use
+                    ProcessingStatus::Completed => channel_successful_completed = true,
+                    ProcessingStatus::Data(batch) => {
+                        let batch: Vec<Result<T>> = Deserializer::from_str(&*batch)
+                            .into_iter()
+                            .map(|v| v.chain_err(|| "Parsing of JSON failed"))
+                            .collect();
+
+                        info!(
+                            "Background parsing thread: batch parsed {:?}",
+                            thread::current().id()
+                        );
+                        // cannot communicate channel failures
+                        if struct_sender.send(ProcessingStatus::Data(batch)).is_err() {
+                            warn!(
+                                "Background parsing thread: sent channel error {:?}",
+                                thread::current().id()
+                            );
+                            // kill on send error
+                            return;
+                        }
+                    }
+                    // The line reader does not use this value
+                    ProcessingStatus::ParsingError(_) => unreachable!(),
+                }
+            })
+            .count();
+        if channel_successful_completed {
+            info!(
+                "Background parsing thread: successful completed {:?}",
+                thread::current().id()
+            );
+            if struct_sender.send(ProcessingStatus::Completed).is_err() {
+                warn!(
+                    "Background parsing thread: sent channel error {:?}",
+                    thread::current().id()
+                );
+                // kill on send error
+                return;
+            }
+        } else {
+            warn!(
+                "Background parsing thread: did not receive complete message from underlying reader {:?}",
+                thread::current().id()
+            );
+        }
+    });
+
+    // return final iterator
+    Box::new(struct_receiver.into_iter().flat_map(|status| {
+        match status {
+            ProcessingStatus::Data(vec) => {
+                vec.into_iter()
+                    .map(|rv| match rv {
+                        Ok(v) => ProcessingStatus::Data(v),
+                        Err(e) => ProcessingStatus::ParsingError(e),
+                    })
+                    .collect::<Vec<_>>()
+            }
+            // I need to list them here one by one, because the left hand side has `T: Vec<_>`
+            // for the enum, which is the wrong type, but rewriting it create the correct one
+            ProcessingStatus::Completed => vec![ProcessingStatus::Completed],
+            ProcessingStatus::IoError(err) => vec![ProcessingStatus::IoError(err)],
+            ProcessingStatus::ParsingError(err) => vec![ProcessingStatus::ParsingError(err)],
+        }
+    }))
 }
