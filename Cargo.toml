@@ -30,6 +30,8 @@ jsonl = ["serde", "serde_json"]
 
 [dev-dependencies]
 pretty_assertions = "0.2"
+# Option dev-dependencies are not a thing :(
+serde_derive = "1.0"
 tempfile = "2.0"
 
 [package.metadata.docs.rs]
