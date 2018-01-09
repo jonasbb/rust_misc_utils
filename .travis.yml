@@ -1,3 +1,6 @@
+language: rust
+sudo: false
+
 notifications:
   email: false
 
@@ -10,14 +13,20 @@ branches:
     # This is where pull requests from "bors try" are built.
     - trying
 
-language: rust
-
 rust:
   - stable
   - beta
   - nightly
 
+addons:
+  apt:
+    packages:
+      - lzma-dev
+
 cache: cargo
+
+env:
+  - LZMA_API_STATIC=1
 
 matrix:
   allow_failures:
