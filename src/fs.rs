@@ -118,7 +118,7 @@ fn file_open_read_with_option_do(file: &Path, mut options: ReadOptions) -> Resul
 
     // read magic bytes
     let mut buffer = [0; 6];
-    if let Err(_) = bufread.read_exact(&mut buffer) {
+    if bufread.read_exact(&mut buffer).is_err() {
         // reset buffer into a valid state
         // this will trigger the plaintext case below
         buffer = [0; 6];
@@ -350,8 +350,8 @@ impl Into<flate2::Compression> for Compression {
         match self {
             Compression::Fastest => FlateCompression::fast(),
             Compression::Default => FlateCompression::default(),
-            Compression::Numeric(n) if n <= 9 => FlateCompression::new(n as u32),
-            Compression::Best | Compression::Numeric(_) => FlateCompression::best(),
+            Compression::Best => FlateCompression::best(),
+            Compression::Numeric(n) => FlateCompression::new(clamp(u32::from(n), 0, 9)),
         }
     }
 }
@@ -367,7 +367,7 @@ impl Into<XzCompression> for Compression {
             Compression::Fastest => XzCompression(0),
             Compression::Default => XzCompression(6),
             Compression::Best => XzCompression(9),
-            Compression::Numeric(n) => XzCompression(clamp(n as u32, 0, 9)),
+            Compression::Numeric(n) => XzCompression(clamp(u32::from(n), 0, 9)),
         }
     }
 }

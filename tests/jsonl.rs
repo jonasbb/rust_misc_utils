@@ -62,7 +62,7 @@ fn test_read_compressed_jsonl_complex_type() {
         ProcessingStatus::Data(d) => assert_eq!(
             d,
             Deserializeable {
-                int: 986273,
+                int: 986_273,
                 value: Value::Else,
             }
         ),
