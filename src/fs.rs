@@ -134,9 +134,7 @@ fn file_open_read_with_option_do(file: &Path, mut options: ReadOptions) -> Resul
         Ok(Box::new(XzDecoder::new(bufread)))
     } else if buffer[..2] == [0x1f, 0x8b] {
         debug!("File {:?} is detected to have type `gz`", file);
-        Ok(Box::new(MultiGzDecoder::new(bufread).chain_err(
-            || "Failed to create the gz reader",
-        )?))
+        Ok(Box::new(MultiGzDecoder::new(bufread)))
     } else if buffer[..3] == [b'B', b'Z', b'h'] {
         debug!("File {:?} is detected to have type `bz2`", file);
         Ok(Box::new(BzDecoder::new(bufread)))
@@ -347,18 +345,14 @@ impl Into<bzip2::Compression> for Compression {
 
 impl Into<flate2::Compression> for Compression {
     fn into(self) -> flate2::Compression {
-        use flate2::Compression::*;
+        use flate2::Compression as FlateCompression;
 
         match self {
-            Compression::Numeric(0) => None,
-            Compression::Fastest => Fast,
-            Compression::Numeric(n) if 1 <= n && n <= 3 => Fast,
-            Compression::Default => Default,
-            Compression::Numeric(n) if 4 <= n && n <= 6 => Default,
-            Compression::Numeric(n) if 7 <= n && n <= 9 => Best,
+            Compression::Fastest => FlateCompression::fast(),
+            Compression::Default => FlateCompression::default(),
+            Compression::Numeric(n) if n <= 9 => FlateCompression::new(n as u32),
             Compression::Best |
-            // catchall for all values > 9
-            Compression::Numeric(_) => Best,
+            Compression::Numeric(_) => FlateCompression::best(),
         }
     }
 }
