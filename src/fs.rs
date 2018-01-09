@@ -124,9 +124,9 @@ fn file_open_read_with_option_do(file: &Path, mut options: ReadOptions) -> Resul
         buffer = [0; 6];
     };
     // reset the read position
-    bufread.seek(SeekFrom::Start(0)).chain_err(
-        || "Failed to seek to start of file.",
-    )?;
+    bufread
+        .seek(SeekFrom::Start(0))
+        .chain_err(|| "Failed to seek to start of file.")?;
 
     // check if file if XZ compressed
     if buffer[..6] == [0xfd, b'7', b'z', b'X', b'Z', 0x00] {
@@ -252,9 +252,9 @@ impl Default for WriteOptions {
 
 impl PartialEq for WriteOptions {
     fn eq(&self, other: &Self) -> bool {
-        self.buffer_capacity == other.buffer_capacity &&
-            self.compression_level == other.compression_level &&
-            self.filetype == other.filetype && self.threads == other.threads
+        self.buffer_capacity == other.buffer_capacity
+            && self.compression_level == other.compression_level
+            && self.filetype == other.filetype && self.threads == other.threads
     }
 }
 
@@ -351,8 +351,7 @@ impl Into<flate2::Compression> for Compression {
             Compression::Fastest => FlateCompression::fast(),
             Compression::Default => FlateCompression::default(),
             Compression::Numeric(n) if n <= 9 => FlateCompression::new(n as u32),
-            Compression::Best |
-            Compression::Numeric(_) => FlateCompression::best(),
+            Compression::Best | Compression::Numeric(_) => FlateCompression::best(),
         }
     }
 }
@@ -548,9 +547,8 @@ where
                             "Background reading thread cannot read line {:?}",
                             thread::current().id()
                         );
-                        let e = Error::from(e).chain_err(
-                            || "Background reading thread cannot read line",
-                        );
+                        let e = Error::from(e)
+                            .chain_err(|| "Background reading thread cannot read line");
                         // cannot communicate channel failures
                         let _ = lines_sender.send(ProcessingStatus::IoError(e));
                         return;
@@ -647,14 +645,12 @@ where
     // return final iterator
     Box::new(struct_receiver.into_iter().flat_map(|status| {
         match status {
-            ProcessingStatus::Data(vec) => {
-                vec.into_iter()
-                    .map(|rv| match rv {
-                        Ok(v) => ProcessingStatus::Data(v),
-                        Err(e) => ProcessingStatus::ParsingError(e),
-                    })
-                    .collect::<Vec<_>>()
-            }
+            ProcessingStatus::Data(vec) => vec.into_iter()
+                .map(|rv| match rv {
+                    Ok(v) => ProcessingStatus::Data(v),
+                    Err(e) => ProcessingStatus::ParsingError(e),
+                })
+                .collect::<Vec<_>>(),
             // I need to list them here one by one, because the left hand side has `T: Vec<_>`
             // for the enum, which is the wrong type, but rewriting it create the correct one
             ProcessingStatus::Completed => vec![ProcessingStatus::Completed],
