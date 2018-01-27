@@ -1,7 +1,12 @@
 use bzip2;
 use bzip2::bufread::BzDecoder;
 use bzip2::write::BzEncoder;
-use error::{Error, ErrorKind, Result, ResultExt};
+#[cfg(feature = "jsonl")]
+use error::{MtJsonlError, MtJsonlErrorKind};
+use error::NotAFileError;
+use failure::{Error, ResultExt};
+#[cfg(feature = "jsonl")]
+use failure::Fail;
 use flate2;
 use flate2::bufread::MultiGzDecoder;
 use flate2::write::GzEncoder;
@@ -11,10 +16,15 @@ use serde::de::DeserializeOwned;
 use serde_json::Deserializer;
 use std::borrow::Borrow;
 use std::fs::OpenOptions;
-use std::io::{BufReader, BufWriter, SeekFrom};
-use std::io::prelude::{BufRead, Read, Seek, Write};
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+#[cfg(feature = "jsonl")]
+use std::io::BufRead;
 use std::path::Path;
+#[cfg(feature = "jsonl")]
+use std::path::PathBuf;
+#[cfg(feature = "jsonl")]
 use std::sync::mpsc;
+#[cfg(feature = "jsonl")]
 use std::thread;
 use xz2::bufread::XzDecoder;
 use xz2::stream::{Check, MtStreamBuilder};
@@ -72,7 +82,7 @@ impl Default for ReadOptions {
 /// See [`file_open_read_with_options`] for the full documentation.
 ///
 /// [`file_open_read_with_options`]: ./fn.file_open_read_with_options.html
-pub fn file_open_read<P>(file: P) -> Result<Box<Read>>
+pub fn file_open_read<P>(file: P) -> Result<Box<Read>, Error>
 where
     P: AsRef<Path>,
 {
@@ -92,16 +102,19 @@ where
 ///
 /// [`BufReader`]: https://doc.rust-lang.org/std/io/struct.BufReader.html
 /// [`ReadOptions`]: ./struct.ReadOptions.html
-pub fn file_open_read_with_options<P>(file: P, options: ReadOptions) -> Result<Box<Read>>
+pub fn file_open_read_with_options<P>(file: P, options: ReadOptions) -> Result<Box<Read>, Error>
 where
     P: AsRef<Path>,
 {
     file_open_read_with_option_do(file.as_ref(), options)
 }
 
-fn file_open_read_with_option_do(file: &Path, mut options: ReadOptions) -> Result<Box<Read>> {
+fn file_open_read_with_option_do(
+    file: &Path,
+    mut options: ReadOptions,
+) -> Result<Box<Read>, Error> {
     if !file.is_file() {
-        return Err(ErrorKind::PathNotAFile(file.to_path_buf()).into());
+        Err(NotAFileError::new(file))?;
     }
 
     let f = options
@@ -109,7 +122,7 @@ fn file_open_read_with_option_do(file: &Path, mut options: ReadOptions) -> Resul
         .read(true)
         .write(false)
         .open(file)
-        .chain_err(|| format!("Could not open file {:?}", file))?;
+        .context(format!("Could not open file {}", file.display()))?;
     let mut bufread = if let Some(size) = options.buffer_capacity {
         BufReader::with_capacity(size, f)
     } else {
@@ -126,20 +139,20 @@ fn file_open_read_with_option_do(file: &Path, mut options: ReadOptions) -> Resul
     // reset the read position
     bufread
         .seek(SeekFrom::Start(0))
-        .chain_err(|| "Failed to seek to start of file.")?;
+        .context("Failed to seek to start of file.")?;
 
     // check if file if XZ compressed
     if buffer[..6] == [0xfd, b'7', b'z', b'X', b'Z', 0x00] {
-        debug!("File {:?} is detected to have type `xz`", file);
+        debug!("File {} is detected to have type `xz`", file.display());
         Ok(Box::new(XzDecoder::new(bufread)))
     } else if buffer[..2] == [0x1f, 0x8b] {
-        debug!("File {:?} is detected to have type `gz`", file);
+        debug!("File {} is detected to have type `gz`", file.display());
         Ok(Box::new(MultiGzDecoder::new(bufread)))
     } else if buffer[..3] == [b'B', b'Z', b'h'] {
-        debug!("File {:?} is detected to have type `bz2`", file);
+        debug!("File {} is detected to have type `bz2`", file.display());
         Ok(Box::new(BzDecoder::new(bufread)))
     } else {
-        debug!("Open file {:?} as plaintext", file);
+        debug!("Open file {} as plaintext", file.display());
         Ok(Box::new(bufread))
     }
 }
@@ -397,7 +410,7 @@ fn clamp<T: PartialOrd>(input: T, min: T, max: T) -> T {
 ///
 /// [`BufReader`]: https://doc.rust-lang.org/std/io/struct.BufReader.html
 /// [`WriteOptions`]: ./struct.WriteOptions.html
-pub fn file_open_write<P>(file: P, mut options: WriteOptions) -> Result<Box<Write>>
+pub fn file_open_write<P>(file: P, mut options: WriteOptions) -> Result<Box<Write>, Error>
 where
     P: AsRef<Path>,
 {
@@ -409,7 +422,7 @@ where
         .read(false)
         .write(true)
         .open(file)
-        .chain_err(|| format!("Could not open file {:?}", file))?;
+        .context(format!("Could not open file {}", file.display()))?;
     let bufwrite = if let Some(size) = options.buffer_capacity {
         BufWriter::with_capacity(size, f)
     } else {
@@ -441,7 +454,7 @@ where
                     .timeout_ms(300)
                     .check(Check::Crc64)
                     .encoder()
-                    .chain_err(|| "Failed to initialize the xz multithreaded stream")?;
+                    .context("Failed to initialize the xz multithreaded stream")?;
                 Ok(Box::new(XzEncoder::new_stream(bufwrite, stream)))
             }
         }
@@ -458,7 +471,7 @@ where
 /// [`parse_jsonl_multi_threaded`]: ./fn.parse_jsonl_multi_threaded.html
 #[cfg(feature = "jsonl")]
 #[derive(Debug)]
-pub enum ProcessingStatus<T>
+enum ProcessingStatus<T>
 where
     T: 'static + Send,
 {
@@ -467,14 +480,74 @@ where
     Completed,
     /// Wrapper for any user-defined datatype
     Data(T),
-    /// Some error occured while opening or reading the file.
-    /// Created in the reader thread based on a [`std::io::Error`].
-    /// [`std::io::Error`]: https://doc.rust-lang.org/std/io/struct.Error.html
-    IoError(Error),
-    /// Some error occured while parsing a JSON value
-    /// Created in the parsing thread based on a [`serde_json::Error`][serde_json]
-    /// [serde_json]: https://docs.rs/serde_json/
-    ParsingError(Error),
+    Error(MtJsonlError),
+}
+
+#[cfg(feature = "jsonl")]
+#[derive(Debug)]
+pub struct MtJsonl<T>
+where
+    T: 'static + DeserializeOwned + Send,
+{
+    iter: mpsc::IntoIter<ProcessingStatus<Vec<Result<T, MtJsonlError>>>>,
+    tmp_state: ::std::vec::IntoIter<Result<T, MtJsonlError>>,
+    did_complete: bool,
+    file: PathBuf,
+}
+
+#[cfg(feature = "jsonl")]
+impl<T> MtJsonl<T>
+where
+    T: 'static + DeserializeOwned + Send,
+{
+    fn new<F>(iter: mpsc::IntoIter<ProcessingStatus<Vec<Result<T, MtJsonlError>>>>, file: F) -> Self
+    where
+        F: AsRef<Path>,
+    {
+        Self {
+            iter,
+            tmp_state: vec![].into_iter(),
+            did_complete: false,
+            file: file.as_ref().to_path_buf(),
+        }
+    }
+}
+
+#[cfg(feature = "jsonl")]
+impl<T> Iterator for MtJsonl<T>
+where
+    T: 'static + DeserializeOwned + Send,
+{
+    type Item = Result<T, MtJsonlError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(res) = self.tmp_state.next() {
+                return Some(match res {
+                    Ok(x) => Ok(x),
+                    Err(err) => {
+                        info!("{:?}", err);
+                        Err(err.context(MtJsonlErrorKind::ParsingError).into())
+                    }
+                });
+            } else if let Some(state) = self.iter.next() {
+                match state {
+                    ProcessingStatus::Data(data) => self.tmp_state = data.into_iter(),
+                    ProcessingStatus::Completed => self.did_complete = true,
+                    // path through error
+                    ProcessingStatus::Error(err) => return Some(Err(err)),
+                }
+                continue;
+            }
+
+            // No more data to read from underlying iterators
+            return if self.did_complete {
+                None
+            } else {
+                Some(Err(MtJsonlErrorKind::NotCompleted.into()))
+            };
+        }
+    }
 }
 
 /// Create a multi-threaded [JSONL] parser.
@@ -497,20 +570,21 @@ where
 /// [`String`]: https://doc.rust-lang.org/std/string/struct.String.html
 /// [JSONL]: http://jsonlines.org/
 #[cfg(feature = "jsonl")]
-pub fn parse_jsonl_multi_threaded<P, T>(
-    path: P,
-    batchsize: u32,
-) -> Box<Iterator<Item = ProcessingStatus<T>>>
+pub fn parse_jsonl_multi_threaded<P, T>(path: P, batchsize: u32) -> MtJsonl<T>
 where
     P: AsRef<Path>,
     T: 'static + DeserializeOwned + Send,
 {
     let path = path.as_ref().to_path_buf();
+    let path_ = path.clone();
     const CHAN_BUFSIZE: usize = 2;
 
     // create channels
     let (lines_sender, lines_receiver) = mpsc::sync_channel(CHAN_BUFSIZE);
-    let (struct_sender, struct_receiver) = mpsc::sync_channel(CHAN_BUFSIZE);
+    let (struct_sender, struct_receiver): (
+        _,
+        mpsc::Receiver<ProcessingStatus<Vec<Result<T, MtJsonlError>>>>,
+    ) = mpsc::sync_channel(CHAN_BUFSIZE);
 
     // spawn reader thread of file
     thread::spawn(move || {
@@ -522,13 +596,17 @@ where
             Ok(rdr) => BufReader::new(rdr),
             Err(e) => {
                 warn!(
-                    "Background reading thread cannot open file {:?} {:?}",
-                    path,
+                    "Background reading thread cannot open file {} {:?}",
+                    path.display(),
                     thread::current().id()
                 );
-                let e = e.chain_err(|| "Background reading thread cannot open file.");
                 // cannot communicate channel failures
-                let _ = lines_sender.send(ProcessingStatus::IoError(e));
+                let _ = lines_sender.send(ProcessingStatus::Error(e.context(
+                    MtJsonlErrorKind::IoError {
+                        msg: "Background reading thread cannot open file".to_string(),
+                        file: path.to_path_buf(),
+                    },
+                ).into()));
                 return;
             }
         };
@@ -547,10 +625,13 @@ where
                             "Background reading thread cannot read line {:?}",
                             thread::current().id()
                         );
-                        let e = Error::from(e)
-                            .chain_err(|| "Background reading thread cannot read line");
                         // cannot communicate channel failures
-                        let _ = lines_sender.send(ProcessingStatus::IoError(e));
+                        let _ = lines_sender.send(ProcessingStatus::Error(e.context(
+                            MtJsonlErrorKind::IoError {
+                                msg: "Background reading thread cannot read line".to_string(),
+                                file: path.to_path_buf(),
+                            },
+                        ).into()));
                         return;
                     }
                 }
@@ -585,21 +666,25 @@ where
             .iter()
             .map(|batch| {
                 match batch {
-                    ProcessingStatus::IoError(e) => {
+                    ProcessingStatus::Error(e) => {
                         info!(
                             "Background parsing thread: pass through error {:?}",
                             thread::current().id()
                         );
                         // cannot communicate channel failures
-                        let _ = struct_sender.send(ProcessingStatus::IoError(e));
+                        let _ = struct_sender.send(ProcessingStatus::Error(e));
                         return;
                     }
                     // not the success status for future use
                     ProcessingStatus::Completed => channel_successful_completed = true,
                     ProcessingStatus::Data(batch) => {
-                        let batch: Vec<Result<T>> = Deserializer::from_str(&*batch)
+                        let batch: Vec<Result<T, MtJsonlError>> = Deserializer::from_str(&*batch)
                             .into_iter()
-                            .map(|v| v.chain_err(|| "Parsing of JSON failed"))
+                            .map(|v| {
+                                v.map_err(|err| {
+                                    MtJsonlError::from(err.context(MtJsonlErrorKind::ParsingError))
+                                })
+                            })
                             .collect();
 
                         info!(
@@ -616,8 +701,6 @@ where
                             return;
                         }
                     }
-                    // The line reader does not use this value
-                    ProcessingStatus::ParsingError(_) => unreachable!(),
                 }
             })
             .count();
@@ -642,20 +725,5 @@ where
         }
     });
 
-    // return final iterator
-    Box::new(struct_receiver.into_iter().flat_map(|status| {
-        match status {
-            ProcessingStatus::Data(vec) => vec.into_iter()
-                .map(|rv| match rv {
-                    Ok(v) => ProcessingStatus::Data(v),
-                    Err(e) => ProcessingStatus::ParsingError(e),
-                })
-                .collect::<Vec<_>>(),
-            // I need to list them here one by one, because the left hand side has `T: Vec<_>`
-            // for the enum, which is the wrong type, but rewriting it create the correct one
-            ProcessingStatus::Completed => vec![ProcessingStatus::Completed],
-            ProcessingStatus::IoError(err) => vec![ProcessingStatus::IoError(err)],
-            ProcessingStatus::ParsingError(err) => vec![ProcessingStatus::ParsingError(err)],
-        }
-    }))
+    MtJsonl::new(struct_receiver.into_iter(), path_)
 }
