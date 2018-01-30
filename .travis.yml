@@ -35,8 +35,9 @@ matrix:
 before_script:
   - ( test $TRAVIS_RUST_VERSION != "nightly" || cargo install --force clippy )
 
-script:
-  - set -e
-  - cargo build --verbose
-  - cargo test --verbose
-  - ( test $TRAVIS_RUST_VERSIO! != "nightly" || cargo clippy )
+script: |
+  set -e &&
+  cargo build --verbose --no-default-features --all &&
+  cargo build --verbose --all &&
+  cargo test --verbose --all
+  ( test $TRAVIS_RUST_VERSION != "nightly" || cargo clippy )
