@@ -1,3 +1,59 @@
+//! This module contains functions related to filesystem operations.
+//!
+//! ## [`file_open_read`] / [`file_open_read_with_options`]
+//!
+//! These functions are convenience wrappers around file I/O. They allow reading of compressed
+//! files in a transparent manner.
+//!
+//! Reading compressed files works for `.bz2`/`.gz`/`.xz` files.
+//!
+//! The example shows how to read a file into a string:
+//!
+//! ```no_run
+//! # extern crate misc_utils;
+//! # use misc_utils::fs::file_open_read;
+//! #
+//! # fn main() {
+//! let mut reader = file_open_read("./text.txt").unwrap();
+//! let mut content = String::new();
+//! reader.read_to_string(&mut content).unwrap();
+//! # }
+//! ```
+//!
+//! ## [`file_open_read`]
+//!
+//! Similar to [`file_open_read`] this functions is a convenience wrapper but for writing
+//! compressed files. The function always requires an argument as the filetype has to be specified.
+//! Using [`Default::default`] is an option and will write a plaintext file.
+//!
+//!
+//! ```no_run
+//! # extern crate misc_utils;
+//! # use misc_utils::fs::file_open_write;
+//! #
+//! # fn main() {
+//! let mut writer = file_open_write("./text.txt", Default::default()).unwrap();
+//! writer.write_all("Hello World".as_bytes()).unwrap();
+//! # }
+//! ```
+//!
+//! ## [`parse_jsonl_mutli_threaded`]
+//!
+//! Create multiple thread reading and parsing a [JSONL] file.
+//!
+//! This function is especially usefull if the file is compressed with a high compression (such as
+//! xz2) and the parsing overhead is non-negligible. The inter-thread communication is batched to
+//! reduce overhead.
+//!
+//! [`file_open_read`]: ./file_open_read.v.html
+//! [`file_open_read_with_options`]: ./file_open_read_with_options.v.html
+//! [`file_open_write`]: ./file_open_write.v.html
+//! [`parse_jsonl_mutli_threaded`]: ./parse_jsonl_mutli_threaded.v.html
+//!
+//! [`Default::default()`]: https://doc.rust-lang.org/std/default/trait.Default.html#tymethod.default
+//!
+//! [JSONL]: http://jsonlines.org/
+
 use bzip2;
 use bzip2::bufread::BzDecoder;
 use bzip2::write::BzEncoder;
@@ -483,6 +539,11 @@ where
     Error(MtJsonlError),
 }
 
+/// An iterator over deserialized JSON objects
+///
+/// This struct is created by the [`parse_jsonl_multi_threaded`] function.
+///
+/// [`parse_jsonl_multi_threaded`]: ./parse_jsonl_multi_threaded.v.html
 #[cfg(feature = "jsonl")]
 #[derive(Debug)]
 pub struct MtJsonl<T>
@@ -552,9 +613,8 @@ where
 
 /// Create a multi-threaded [JSONL] parser.
 ///
-/// This returns an iterator for [`ProcessingStatus<T>`][`ProcessingStatus`] based on a file. A
-/// user **must** verify, that the last element of iteration is the `Completed` variant of
-/// [`ProcessingStatus`] to ensure that no errors have occured.
+/// This returns an iterator over `Result<T>`. If any reading errors of the file or parsing errors
+/// happen they will be passed to the caller of the iterator.
 ///
 /// Internally this will spawn two threads. The first thread is responsible for reading from the
 /// underlying file. It uses [`file_open_read`] for this task, thus it also supports compressed

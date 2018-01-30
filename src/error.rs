@@ -1,9 +1,18 @@
+//! This modules contains all error type definitions for this crate
+//!
+//! See the description of the individual error types for more details.
+
 #[cfg(feature = "jsonl")]
 use failure::{Backtrace, Context, Fail};
 use std::fmt::{self, Display};
 use std::path::Path;
 use std::path::PathBuf;
 
+/// `ErrorKind` variant for [`MtJsonlError`]s.
+///
+/// The error kind specifies the error in more detail. Please see the individual variants for details.
+///
+/// [`MtJsonlError`]: ./MtJsonlError.t.html
 #[cfg(feature = "jsonl")]
 #[allow(variant_size_differences)]
 #[derive(Debug, Fail)]
@@ -19,8 +28,9 @@ pub enum MtJsonlErrorKind {
     /// [`std::io::Error`]: https://doc.rust-lang.org/std/io/struct.Error.html
     #[fail(display = "IO Error while processing the file '{:?}'", file)]
     IoError {
+        /// Custom message describing the error in more detail.
         msg: String,
-        /// File which causes the IO Errors
+        /// File which causes the IO Errors.
         file: PathBuf,
     },
 
@@ -32,6 +42,12 @@ pub enum MtJsonlErrorKind {
     ParsingError,
 }
 
+/// Error value for elements returned by [`MtJsonl`].
+///
+/// Look at [`MtJsonlErrorKind`] for details.
+///
+/// [`MtJsonl`]: ../fs/MtJsonl.t.html
+/// [`MtJsonlErrorKind`]: ./MtJsonlErrorKind.t.html
 #[cfg(feature = "jsonl")]
 #[derive(Debug)]
 pub struct MtJsonlError {
@@ -58,6 +74,7 @@ impl Display for MtJsonlError {
 
 #[cfg(feature = "jsonl")]
 impl MtJsonlError {
+    /// Return the error kind for this error.
     pub fn kind(&self) -> &MtJsonlErrorKind {
         self.inner.get_context()
     }
