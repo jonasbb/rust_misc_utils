@@ -7,49 +7,47 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
-use misc_utils::fs::{parse_jsonl_multi_threaded, ProcessingStatus};
+use misc_utils::fs::parse_jsonl_multi_threaded;
+
+#[derive(Debug, Eq, PartialEq, Deserialize)]
+enum Value {
+    Something,
+    Else,
+}
+
+#[derive(Debug, Eq, PartialEq, Deserialize)]
+struct Deserializeable {
+    int: u64,
+    value: Value,
+}
 
 #[test]
 fn test_read_compressed_jsonl() {
     let mut iter = parse_jsonl_multi_threaded::<_, (u64, u64)>("./tests/data/jsonl.xz", 1024);
     match iter.next().unwrap() {
-        ProcessingStatus::Data(d) => assert_eq!(d, (1, 2)),
+        Ok(d) => assert_eq!(d, (1, 2)),
         _ => panic!("First value must be Data"),
     }
     match iter.next().unwrap() {
-        ProcessingStatus::Data(d) => assert_eq!(d, (987, 666)),
+        Ok(d) => assert_eq!(d, (987, 666)),
         _ => panic!("Second value must be Data"),
     }
     match iter.next().unwrap() {
-        ProcessingStatus::Data(d) => assert_eq!(d, (0, 0)),
+        Ok(d) => assert_eq!(d, (0, 0)),
         _ => panic!("Third value must be Data"),
     }
-    match iter.next().unwrap() {
-        ProcessingStatus::Completed => {}
-        _ => panic!("Last value must be Completed"),
-    }
+    // assert finished completely
+    assert!(iter.next().is_none());
 }
 
 #[test]
-fn test_read_compressed_jsonl_complex_type() {
-    #[derive(Debug, Eq, PartialEq, Deserialize)]
-    enum Value {
-        Something,
-        Else,
-    }
-
-    #[derive(Debug, Eq, PartialEq, Deserialize)]
-    struct Deserializeable {
-        int: u64,
-        value: Value,
-    }
-
+fn test_read_complex_type() {
     let mut iter = parse_jsonl_multi_threaded::<_, Deserializeable>(
         "./tests/data/jsonl-complex-type.txt",
         1024,
     );
     match iter.next().unwrap() {
-        ProcessingStatus::Data(d) => assert_eq!(
+        Ok(d) => assert_eq!(
             d,
             Deserializeable {
                 int: 6782,
@@ -59,7 +57,7 @@ fn test_read_compressed_jsonl_complex_type() {
         _ => panic!("First value must be Data"),
     }
     match iter.next().unwrap() {
-        ProcessingStatus::Data(d) => assert_eq!(
+        Ok(d) => assert_eq!(
             d,
             Deserializeable {
                 int: 986_273,
@@ -68,8 +66,30 @@ fn test_read_compressed_jsonl_complex_type() {
         ),
         _ => panic!("Second value must be Data"),
     }
+    // assert finished completely
+    assert!(iter.next().is_none())
+}
+
+#[test]
+fn test_read_broken_json() {
+    let mut iter = parse_jsonl_multi_threaded::<_, Deserializeable>(
+        "./tests/data/jsonl-broken-json.txt",
+        1024,
+    );
     match iter.next().unwrap() {
-        ProcessingStatus::Completed => {}
-        _ => panic!("Last value must be Completed"),
+        Ok(d) => assert_eq!(
+            d,
+            Deserializeable {
+                int: 6782,
+                value: Value::Something,
+            }
+        ),
+        _ => panic!("First value must be Data"),
     }
+    match iter.next().unwrap() {
+        Ok(_) => panic!("Second value must be ParsingError"),
+        Err(e) => {}
+    }
+    // assert finished completely
+    assert!(iter.next().is_none())
 }
