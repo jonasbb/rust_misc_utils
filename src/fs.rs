@@ -642,6 +642,7 @@ where
 
     // create channels
     let (lines_sender, lines_receiver) = mpsc::sync_channel(CHAN_BUFSIZE);
+    #[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
     let (struct_sender, struct_receiver): (
         _,
         mpsc::Receiver<ProcessingStatus<Vec<Result<T, MtJsonlError>>>>,

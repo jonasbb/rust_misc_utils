@@ -86,9 +86,8 @@ fn test_read_broken_json() {
         ),
         _ => panic!("First value must be Data"),
     }
-    match iter.next().unwrap() {
-        Ok(_) => panic!("Second value must be ParsingError"),
-        Err(e) => {}
+    if iter.next().unwrap().is_ok() {
+        panic!("Second value must be ParsingError")
     }
     // assert finished completely
     assert!(iter.next().is_none())
