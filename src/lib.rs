@@ -1,7 +1,21 @@
-#![deny(missing_debug_implementations, missing_copy_implementations, trivial_casts,
-        trivial_numeric_casts, unused_extern_crates, unused_import_braces, unused_qualifications,
-        variant_size_differences)]
-#![warn(missing_docs)]
+#![deny(
+    missing_debug_implementations,
+    missing_copy_implementations,
+    missing_docs,
+    trivial_casts,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_qualifications,
+    variant_size_differences
+)]
+
+//! This crate contains miscellaneous utility functions
+//!
+//! Currently this crate contains functions to
+//!
+//! * interact with the filesystem in `fs`
+//! * process line-separated JSON data
 
 extern crate bzip2;
 #[macro_use]
