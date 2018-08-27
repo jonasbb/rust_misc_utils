@@ -4,9 +4,10 @@
 
 #[cfg(feature = "jsonl")]
 use failure::{Backtrace, Context, Fail};
-use std::fmt::{self, Display};
-use std::path::Path;
-use std::path::PathBuf;
+use std::{
+    fmt::{self, Display},
+    path::{Path, PathBuf},
+};
 
 /// `ErrorKind` variant for [`MtJsonlError`]s.
 ///
@@ -92,7 +93,7 @@ impl From<MtJsonlErrorKind> for MtJsonlError {
 #[cfg(feature = "jsonl")]
 impl From<Context<MtJsonlErrorKind>> for MtJsonlError {
     fn from(inner: Context<MtJsonlErrorKind>) -> MtJsonlError {
-        MtJsonlError { inner: inner }
+        MtJsonlError { inner }
     }
 }
 

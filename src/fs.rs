@@ -54,37 +54,37 @@
 //!
 //! [JSONL]: http://jsonlines.org/
 
-use bzip2;
-use bzip2::bufread::BzDecoder;
-use bzip2::write::BzEncoder;
+use bzip2::{self, bufread::BzDecoder, write::BzEncoder};
+use error::NotAFileError;
 #[cfg(feature = "jsonl")]
 use error::{MtJsonlError, MtJsonlErrorKind};
-use error::NotAFileError;
-use failure::{Error, ResultExt};
 #[cfg(feature = "jsonl")]
 use failure::Fail;
-use flate2;
-use flate2::bufread::MultiGzDecoder;
-use flate2::write::GzEncoder;
+use failure::{Error, ResultExt};
+use flate2::{self, bufread::MultiGzDecoder, write::GzEncoder};
 #[cfg(feature = "jsonl")]
 use serde::de::DeserializeOwned;
 #[cfg(feature = "jsonl")]
 use serde_json::Deserializer;
-use std::borrow::Borrow;
-use std::fs::OpenOptions;
-use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 #[cfg(feature = "jsonl")]
 use std::io::BufRead;
-use std::path::Path;
 #[cfg(feature = "jsonl")]
 use std::path::PathBuf;
 #[cfg(feature = "jsonl")]
 use std::sync::mpsc;
 #[cfg(feature = "jsonl")]
 use std::thread;
-use xz2::bufread::XzDecoder;
-use xz2::stream::{Check, MtStreamBuilder};
-use xz2::write::XzEncoder;
+use std::{
+    borrow::Borrow,
+    fs::OpenOptions,
+    io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write},
+    path::Path,
+};
+use xz2::{
+    bufread::XzDecoder,
+    stream::{Check, MtStreamBuilder},
+    write::XzEncoder,
+};
 
 /// Configure behaviour of the [`file_open_read_with_options`] function.
 ///
@@ -313,7 +313,7 @@ impl Default for WriteOptions {
             buffer_capacity: None,
             compression_level: Compression::default(),
             filetype: FileType::default(),
-            open_options: open_options,
+            open_options,
             threads: 1,
         }
     }
@@ -323,7 +323,8 @@ impl PartialEq for WriteOptions {
     fn eq(&self, other: &Self) -> bool {
         self.buffer_capacity == other.buffer_capacity
             && self.compression_level == other.compression_level
-            && self.filetype == other.filetype && self.threads == other.threads
+            && self.filetype == other.filetype
+            && self.threads == other.threads
     }
 }
 
@@ -661,12 +662,12 @@ where
                     thread::current().id()
                 );
                 // cannot communicate channel failures
-                let _ = lines_sender.send(ProcessingStatus::Error(e.context(
-                    MtJsonlErrorKind::IoError {
+                let _ = lines_sender.send(ProcessingStatus::Error(
+                    e.context(MtJsonlErrorKind::IoError {
                         msg: "Background reading thread cannot open file".to_string(),
                         file: path.to_path_buf(),
-                    },
-                ).into()));
+                    }).into(),
+                ));
                 return;
             }
         };
@@ -686,12 +687,12 @@ where
                             thread::current().id()
                         );
                         // cannot communicate channel failures
-                        let _ = lines_sender.send(ProcessingStatus::Error(e.context(
-                            MtJsonlErrorKind::IoError {
+                        let _ = lines_sender.send(ProcessingStatus::Error(
+                            e.context(MtJsonlErrorKind::IoError {
                                 msg: "Background reading thread cannot read line".to_string(),
                                 file: path.to_path_buf(),
-                            },
-                        ).into()));
+                            }).into(),
+                        ));
                         return;
                     }
                 }
@@ -744,8 +745,7 @@ where
                                 v.map_err(|err| {
                                     MtJsonlError::from(err.context(MtJsonlErrorKind::ParsingError))
                                 })
-                            })
-                            .collect();
+                            }).collect();
 
                         info!(
                             "Background parsing thread: batch parsed {:?}",
@@ -762,8 +762,7 @@ where
                         }
                     }
                 }
-            })
-            .count();
+            }).count();
         if channel_successful_completed {
             info!(
                 "Background parsing thread: successful completed {:?}",

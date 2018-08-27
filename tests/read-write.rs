@@ -4,9 +4,7 @@ extern crate pretty_assertions;
 extern crate tempfile;
 
 use misc_utils::fs::*;
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::Path;
+use std::{fs::File, io::prelude::*, path::Path};
 use tempfile::NamedTempFile;
 
 const LOREM_IPSUM: &str =
