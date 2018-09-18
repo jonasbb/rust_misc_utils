@@ -4,6 +4,7 @@ sudo: false
 notifications:
   email: false
 
+# https://github.com/bors-ng/bors-ng/issues/441#issuecomment-410467524
 branches:
   only:
     # Enable building pull requests.
@@ -13,31 +14,46 @@ branches:
     # This is where pull requests from "bors try" are built.
     - trying
 
-rust:
-  - stable
-  - beta
-  - nightly
+matrix:
+  include:
+    - name: "Bors (stable)"
+      if: branch = staging OR branch = trying
+      rust: stable
+    - name: "Bors (beta)"
+      if: branch = staging OR branch = trying
+      rust: beta
+    - name: "Bors (nightly)"
+      if: branch = staging OR branch = trying
+      rust: nightly
+    - name: "PR Open"
+      if: type = pull_request AND branch = master
+      rust: stable
 
 addons:
   apt:
     packages:
       - lzma-dev
 
-cache: cargo
+# https://levans.fr/rust_travis_cache.html
+# Need to cache the whole `.cargo` directory to keep .crates.toml for
+# cargo-update to work
+cache:
+  directories:
+    - /home/travis/.cargo
+
+# But don't cache the cargo registry
+before_cache:
+  - rm -rf /home/travis/.cargo/registry
 
 env:
   - LZMA_API_STATIC=1
 
-matrix:
-  allow_failures:
-    - rust: nightly
-
 before_script:
-  - ( test $TRAVIS_RUST_VERSION != "nightly" || cargo install --force clippy )
+  - rustup component add clippy-preview
 
-script: |
-  set -e &&
-  cargo build --verbose --no-default-features --all &&
-  cargo build --verbose --all &&
-  cargo test --verbose --all
-  ( test $TRAVIS_RUST_VERSION != "nightly" || cargo clippy )
+script:
+  - set -e
+  - cargo build --verbose --no-default-features --all
+  - cargo build --verbose --all
+  - cargo clippy --verbose --all-targets --all-features
+  - cargo test --verbose --all
