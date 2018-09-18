@@ -23,6 +23,7 @@ extern crate failure;
 extern crate flate2;
 #[macro_use]
 extern crate log;
+extern crate num_traits;
 #[cfg(feature = "jsonl")]
 extern crate serde;
 #[cfg(feature = "jsonl")]
@@ -31,3 +32,6 @@ extern crate xz2;
 
 pub mod error;
 pub mod fs;
+mod minmax;
+
+pub use minmax::{Max, Min};
