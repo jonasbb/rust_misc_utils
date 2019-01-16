@@ -1,6 +1,6 @@
 [package]
 name = "misc_utils"
-version = "2.1.0"
+version = "2.2.0"
 authors = ["Jonas Bushart <jonas@bushart.org>"]
 description = "A small collection of convenient and utility functions developed for personal use."
 documentation = "https://docs.rs/misc_utils/"
