@@ -2,6 +2,7 @@ use num_traits::Bounded;
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     iter::FromIterator,
+    str::FromStr,
 };
 
 /// Helper type to ensure to calculate a minimal value
@@ -99,6 +100,17 @@ where
     }
 }
 
+impl<T> FromStr for Min<T>
+where
+    T: Copy + FromStr + Ord,
+{
+    type Err = T::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::with_initial(T::from_str(s)?))
+    }
+}
+
 /// Helper type to ensure to calculate a maximal value
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Max<T> {
@@ -191,5 +203,16 @@ where
         } else {
             write!(f, "<uninitialized>")
         }
+    }
+}
+
+impl<T> FromStr for Max<T>
+where
+    T: Copy + FromStr + Ord,
+{
+    type Err = T::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::with_initial(T::from_str(s)?))
     }
 }
