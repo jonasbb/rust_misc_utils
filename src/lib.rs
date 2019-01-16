@@ -18,10 +18,8 @@
 //! * process line-separated JSON data
 
 extern crate bzip2;
-#[macro_use]
 extern crate failure;
 extern crate flate2;
-#[macro_use]
 extern crate log;
 extern crate num_traits;
 #[cfg(feature = "jsonl")]

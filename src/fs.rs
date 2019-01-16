@@ -62,6 +62,7 @@ use error::{MtJsonlError, MtJsonlErrorKind};
 use failure::Fail;
 use failure::{Error, ResultExt};
 use flate2::{self, bufread::MultiGzDecoder, write::GzEncoder};
+use log::{debug, info, warn};
 #[cfg(feature = "jsonl")]
 use serde::de::DeserializeOwned;
 #[cfg(feature = "jsonl")]
@@ -667,7 +668,8 @@ where
                     e.context(MtJsonlErrorKind::IoError {
                         msg: "Background reading thread cannot open file".to_string(),
                         file: path.to_path_buf(),
-                    }).into(),
+                    })
+                    .into(),
                 ));
                 return;
             }
@@ -692,7 +694,8 @@ where
                             e.context(MtJsonlErrorKind::IoError {
                                 msg: "Background reading thread cannot read line".to_string(),
                                 file: path.to_path_buf(),
-                            }).into(),
+                            })
+                            .into(),
                         ));
                         return;
                     }
@@ -746,7 +749,8 @@ where
                                 v.map_err(|err| {
                                     MtJsonlError::from(err.context(MtJsonlErrorKind::ParsingError))
                                 })
-                            }).collect();
+                            })
+                            .collect();
 
                         info!(
                             "Background parsing thread: batch parsed {:?}",
@@ -763,7 +767,8 @@ where
                         }
                     }
                 }
-            }).count();
+            })
+            .count();
         if channel_successful_completed {
             info!(
                 "Background parsing thread: successful completed {:?}",
