@@ -2,8 +2,9 @@
 //!
 //! See the description of the individual error types for more details.
 
+use failure::Fail;
 #[cfg(feature = "jsonl")]
-use failure::{Backtrace, Context, Fail};
+use failure::{Backtrace, Context};
 use std::{
     fmt::{self, Display},
     path::{Path, PathBuf},
