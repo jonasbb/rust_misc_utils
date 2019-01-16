@@ -1,5 +1,6 @@
 language: rust
-sudo: false
+sudo: true
+cache: cargo
 
 notifications:
   email: false
@@ -17,22 +18,17 @@ branches:
 matrix:
   include:
     - name: "Bors (stable)"
-      if: branch = staging OR branch = trying
+      if: branch = staging OR branch = trying OR type = cron
       rust: stable
     - name: "Bors (beta)"
-      if: branch = staging OR branch = trying
+      if: branch = staging OR branch = trying OR type = cron
       rust: beta
     - name: "Bors (nightly)"
-      if: branch = staging OR branch = trying
+      if: branch = staging OR branch = trying OR type = cron
       rust: nightly
     - name: "PR Open"
       if: type = pull_request AND branch = master
       rust: stable
-
-addons:
-  apt:
-    packages:
-      - lzma-dev
 
 # https://levans.fr/rust_travis_cache.html
 # Need to cache the whole `.cargo` directory to keep .crates.toml for
@@ -46,14 +42,23 @@ before_cache:
   - rm -rf /home/travis/.cargo/registry
 
 env:
+  global:
   - LZMA_API_STATIC=1
 
+addons:
+  apt:
+    packages:
+      - lzma-dev
+
 before_script:
-  - rustup component add clippy-preview
+  # Allow this step to fail in case clippy is not available for whatever reason
+  - ( rustup component add clippy-preview || true )
 
 script:
   - set -e
   - cargo build --verbose --no-default-features --all
   - cargo build --verbose --all
-  - cargo clippy --verbose --all-targets --all-features
+  # skip this step if clippy is not available, e.g., bad nightly
+  # `|| true` to make the command always succeed, because the `set -e` would fail otherwise
+  - ( which cargo-clippy >/dev/null 2>&1 && cargo clippy --verbose --all ) || true
   - cargo test --verbose --all
