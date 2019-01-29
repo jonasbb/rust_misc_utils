@@ -91,7 +91,7 @@ impl<T> Display for Min<T>
 where
     T: Display,
 {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if let Some(v) = &self.value {
             write!(f, "{}", v)
         } else {
@@ -197,7 +197,7 @@ impl<T> Display for Max<T>
 where
     T: Display,
 {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if let Some(v) = &self.value {
             write!(f, "{}", v)
         } else {

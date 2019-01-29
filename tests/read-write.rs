@@ -1,9 +1,5 @@
-extern crate misc_utils;
-#[macro_use]
-extern crate pretty_assertions;
-extern crate tempfile;
-
-use misc_utils::fs::*;
+use misc_utils::fs::{self, file_open_read, file_open_write, Compression, FileType, WriteOptions};
+use pretty_assertions::assert_eq;
 use std::{fs::File, io::prelude::*, path::Path};
 use tempfile::NamedTempFile;
 

@@ -54,27 +54,23 @@
 //!
 //! [JSONL]: http://jsonlines.org/
 
-use bzip2::{self, bufread::BzDecoder, write::BzEncoder};
-use error::NotAFileError;
+use crate::error::NotAFileError;
 #[cfg(feature = "jsonl")]
-use error::{MtJsonlError, MtJsonlErrorKind};
+use crate::error::{MtJsonlError, MtJsonlErrorKind};
+use bzip2::{self, bufread::BzDecoder, write::BzEncoder};
 #[cfg(feature = "jsonl")]
 use failure::Fail;
 use failure::{Error, ResultExt};
 use flate2::{self, bufread::MultiGzDecoder, write::GzEncoder};
-use log::{debug, info, warn};
+use log::debug;
+#[cfg(feature = "jsonl")]
+use log::{info, warn};
 #[cfg(feature = "jsonl")]
 use serde::de::DeserializeOwned;
 #[cfg(feature = "jsonl")]
 use serde_json::Deserializer;
 #[cfg(feature = "jsonl")]
-use std::io::BufRead;
-#[cfg(feature = "jsonl")]
-use std::path::PathBuf;
-#[cfg(feature = "jsonl")]
-use std::sync::mpsc;
-#[cfg(feature = "jsonl")]
-use std::thread;
+use std::{io::BufRead, path::PathBuf, sync::mpsc, thread};
 use std::{
     borrow::Borrow,
     fs::OpenOptions,
@@ -139,7 +135,7 @@ impl Default for ReadOptions {
 /// See [`file_open_read_with_options`] for the full documentation.
 ///
 /// [`file_open_read_with_options`]: ./fn.file_open_read_with_options.html
-pub fn file_open_read<P>(file: P) -> Result<Box<Read>, Error>
+pub fn file_open_read<P>(file: P) -> Result<Box<dyn Read>, Error>
 where
     P: AsRef<Path>,
 {
@@ -159,7 +155,7 @@ where
 ///
 /// [`BufReader`]: https://doc.rust-lang.org/std/io/struct.BufReader.html
 /// [`ReadOptions`]: ./struct.ReadOptions.html
-pub fn file_open_read_with_options<P>(file: P, options: ReadOptions) -> Result<Box<Read>, Error>
+pub fn file_open_read_with_options<P>(file: P, options: ReadOptions) -> Result<Box<dyn Read>, Error>
 where
     P: AsRef<Path>,
 {
@@ -169,7 +165,7 @@ where
 fn file_open_read_with_option_do(
     file: &Path,
     mut options: ReadOptions,
-) -> Result<Box<Read>, Error> {
+) -> Result<Box<dyn Read>, Error> {
     if !file.is_file() {
         Err(NotAFileError::new(file))?;
     }
@@ -468,7 +464,7 @@ fn clamp<T: PartialOrd>(input: T, min: T, max: T) -> T {
 ///
 /// [`BufReader`]: https://doc.rust-lang.org/std/io/struct.BufReader.html
 /// [`WriteOptions`]: ./struct.WriteOptions.html
-pub fn file_open_write<P>(file: P, mut options: WriteOptions) -> Result<Box<Write>, Error>
+pub fn file_open_write<P>(file: P, mut options: WriteOptions) -> Result<Box<dyn Write>, Error>
 where
     P: AsRef<Path>,
 {

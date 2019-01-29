@@ -58,7 +58,7 @@ pub struct MtJsonlError {
 
 #[cfg(feature = "jsonl")]
 impl Fail for MtJsonlError {
-    fn cause(&self) -> Option<&Fail> {
+    fn cause(&self) -> Option<&dyn Fail> {
         self.inner.cause()
     }
 
@@ -69,7 +69,7 @@ impl Fail for MtJsonlError {
 
 #[cfg(feature = "jsonl")]
 impl Display for MtJsonlError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.inner, f)
     }
 }
@@ -118,7 +118,7 @@ impl NotAFileError {
 }
 
 impl Display for NotAFileError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("'{}' is not a file.", self.path.display()))
     }
 }
