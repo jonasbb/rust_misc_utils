@@ -69,14 +69,15 @@ use log::{info, warn};
 use serde::de::DeserializeOwned;
 #[cfg(feature = "jsonl")]
 use serde_json::Deserializer;
-#[cfg(feature = "jsonl")]
-use std::{io::BufRead, path::PathBuf, sync::mpsc, thread};
 use std::{
     borrow::Borrow,
+    ffi::OsStr,
     fs::OpenOptions,
     io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write},
     path::Path,
 };
+#[cfg(feature = "jsonl")]
+use std::{io::BufRead, path::PathBuf, sync::mpsc, thread};
 use xz2::{
     bufread::XzDecoder,
     stream::{Check, MtStreamBuilder},
@@ -787,4 +788,58 @@ where
     });
 
     MtJsonl::new(struct_receiver.into_iter(), path_)
+}
+
+/// Read the entire contents of a file into a bytes vector.
+///
+/// This function supports opening compressed files transparently.
+///
+/// The API mirrors the function in [`std::fs::read`] except for the error type.
+pub fn read<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, Error> {
+    let mut buffer = Vec::new();
+    let mut reader = file_open_read_with_option_do(path.as_ref(), ReadOptions::default())?;
+    reader.read_to_end(&mut buffer)?;
+    Ok(buffer)
+}
+
+/// Read the entire contents of a file into a string.
+///
+/// This function supports opening compressed files transparently.
+///
+/// The API mirrors the function in [`std::fs::read_to_string`] except for the error type.
+pub fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String, Error> {
+    let mut buffer = String::new();
+    let mut reader = file_open_read_with_option_do(path.as_ref(), ReadOptions::default())?;
+    reader.read_to_string(&mut buffer)?;
+    Ok(buffer)
+}
+
+/// Write a slice as the entire contents of a file.
+///
+/// The functions chooses the filetype based on the extension.
+/// If a recognized extension is used the file will be compressed otherwise the file will be written as plaintext.
+/// If compression is used, it will use the default (6) compression ratio.
+///
+/// The API mirrors the function in [`std::fs::write`] except for the error type.
+pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(), Error> {
+    let path = path.as_ref();
+    let mut options = WriteOptions::default();
+    options = match path.extension().and_then(OsStr::to_str) {
+        Some("xz") => options
+            .set_filetype(FileType::Xz)
+            .set_compression_level(Compression::Default),
+        Some("gzip") | Some("gz") => options
+            .set_filetype(FileType::Gz)
+            .set_compression_level(Compression::Default),
+        Some("bzip") | Some("bz2") => options
+            .set_filetype(FileType::Bz2)
+            .set_compression_level(Compression::Default),
+        _ => options.set_filetype(FileType::PlainText),
+    };
+
+    let mut writer = file_open_write(path, options)?;
+    writer.write_all(contents.as_ref())?;
+    writer.flush()?;
+    drop(writer);
+    Ok(())
 }
