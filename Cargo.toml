@@ -1,6 +1,6 @@
 [package]
 name = "misc_utils"
-version = "2.2.0"
+version = "2.3.0"
 authors = ["Jonas Bushart <jonas@bushart.org>"]
 description = "A small collection of convenient and utility functions developed for personal use."
 documentation = "https://docs.rs/misc_utils/"
@@ -8,6 +8,7 @@ repository = "https://github.com/jonasbb/rust_misc_utils"
 readme = "README.md"
 keywords = ["misc", "utils", "convenience"]
 license = "Unlicense"
+edition="2018"
 
 [lib]
 name = "misc_utils"
