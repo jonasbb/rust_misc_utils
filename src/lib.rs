@@ -25,5 +25,6 @@
 pub mod error;
 pub mod fs;
 mod minmax;
+pub mod path;
 
 pub use crate::minmax::{Max, Min};
