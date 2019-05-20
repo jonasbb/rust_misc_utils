@@ -13,8 +13,6 @@ use std::{
 /// `ErrorKind` variant for [`MtJsonlError`]s.
 ///
 /// The error kind specifies the error in more detail. Please see the individual variants for details.
-///
-/// [`MtJsonlError`]: ./MtJsonlError.t.html
 #[cfg(feature = "jsonl")]
 #[allow(variant_size_differences)]
 #[derive(Debug, Fail)]
@@ -26,8 +24,6 @@ pub enum MtJsonlErrorKind {
 
     /// Some error occured while opening or reading the file.
     /// Created in the reader thread based on a [`std::io::Error`].
-    ///
-    /// [`std::io::Error`]: https://doc.rust-lang.org/std/io/struct.Error.html
     #[fail(display = "IO Error while processing the file '{:?}'", file)]
     IoError {
         /// Custom message describing the error in more detail.
@@ -37,19 +33,14 @@ pub enum MtJsonlErrorKind {
     },
 
     /// Some error occured while parsing a JSON value
-    /// Created in the parsing thread based on a [`serde_json::Error`][serde_json]
-    ///
-    /// [serde_json]: https://docs.rs/serde_json/
+    /// Created in the parsing thread based on a [`serde_json::Error`]
     #[fail(display = "Could not parse a JSON value")]
     ParsingError,
 }
 
-/// Error value for elements returned by [`MtJsonl`].
+/// Error value for elements returned by [`MtJsonl`](crate::fs::MtJsonl).
 ///
 /// Look at [`MtJsonlErrorKind`] for details.
-///
-/// [`MtJsonl`]: ../fs/MtJsonl.t.html
-/// [`MtJsonlErrorKind`]: ./MtJsonlErrorKind.t.html
 #[cfg(feature = "jsonl")]
 #[derive(Debug)]
 pub struct MtJsonlError {
