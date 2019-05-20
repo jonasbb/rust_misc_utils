@@ -20,7 +20,7 @@
 //! # }
 //! ```
 //!
-//! ## [`file_open_read`]
+//! ## [`file_open_write`]
 //!
 //! Similar to [`file_open_read`] this functions is a convenience wrapper but for writing
 //! compressed files. The function always requires an argument as the filetype has to be specified.
@@ -37,7 +37,7 @@
 //! # }
 //! ```
 //!
-//! ## [`parse_jsonl_mutli_threaded`]
+//! ## [`parse_jsonl_multi_threaded`]
 //!
 //! Create multiple thread reading and parsing a [JSONL] file.
 //!
@@ -45,12 +45,10 @@
 //! xz2) and the parsing overhead is non-negligible. The inter-thread communication is batched to
 //! reduce overhead.
 //!
-//! [`file_open_read`]: ./file_open_read.v.html
-//! [`file_open_read_with_options`]: ./file_open_read_with_options.v.html
-//! [`file_open_write`]: ./file_open_write.v.html
-//! [`parse_jsonl_mutli_threaded`]: ./parse_jsonl_mutli_threaded.v.html
-//!
-//! [`Default::default()`]: https://doc.rust-lang.org/std/default/trait.Default.html#tymethod.default
+//! [`file_open_read`]: crate::fs::file_open_read
+//! [`file_open_read_with_options`]: crate::fs::file_open_read_with_options
+//! [`file_open_write`]: crate::fs::file_open_write
+//! [`parse_jsonl_multi_threaded`]: crate::fs::parse_jsonl_multi_threaded
 //!
 //! [JSONL]: http://jsonlines.org/
 
@@ -462,9 +460,6 @@ fn clamp<T: PartialOrd>(input: T, min: T, max: T) -> T {
 ///
 /// Flushing the writer will not write all the data to file. Archives require some finalizer which
 /// is only written if the writer is being dropped.
-///
-/// [`BufReader`]: https://doc.rust-lang.org/std/io/struct.BufReader.html
-/// [`WriteOptions`]: ./struct.WriteOptions.html
 pub fn file_open_write<P>(file: P, mut options: WriteOptions) -> Result<Box<dyn Write>, Error>
 where
     P: AsRef<Path>,
@@ -522,8 +517,6 @@ where
 /// parsing and the data produced by it. Every user of the [`parse_jsonl_multi_threaded`] **must**
 /// verify that the last element of the iteration is the `Complete` variant, to ensure the whole
 /// file has been read and all lines could successfully parsed.
-///
-/// [`parse_jsonl_multi_threaded`]: ./fn.parse_jsonl_multi_threaded.html
 #[cfg(feature = "jsonl")]
 #[derive(Debug)]
 enum ProcessingStatus<T>
@@ -541,8 +534,6 @@ where
 /// An iterator over deserialized JSON objects
 ///
 /// This struct is created by the [`parse_jsonl_multi_threaded`] function.
-///
-/// [`parse_jsonl_multi_threaded`]: ./parse_jsonl_multi_threaded.v.html
 #[cfg(feature = "jsonl")]
 #[derive(Debug)]
 pub struct MtJsonl<T>
@@ -624,9 +615,6 @@ where
 /// the `batchsize` can be specifies, which controls how many lines are read before passing them to
 /// the second thread and thus how large the vector will be.
 ///
-/// [`file_open_read`]: ./fn.file_open_read.html
-/// [`ProcessingStatus`]: ./enum.ProcessingStatus.html
-/// [`String`]: https://doc.rust-lang.org/std/string/struct.String.html
 /// [JSONL]: http://jsonlines.org/
 #[cfg(feature = "jsonl")]
 pub fn parse_jsonl_multi_threaded<P, T>(path: P, batchsize: u32) -> MtJsonl<T>
