@@ -1,6 +1,6 @@
 [package]
 name = "misc_utils"
-version = "2.4.0"
+version = "2.5.0"
 authors = ["Jonas Bushart <jonas@bushart.org>"]
 description = "A small collection of convenient and utility functions developed for personal use."
 documentation = "https://docs.rs/misc_utils/"
@@ -15,19 +15,26 @@ name = "misc_utils"
 path = "src/lib.rs"
 
 [dependencies]
-bzip2 = "0.3"
+bzip2 = { version = "0.3", optional = true }
 failure = "0.1.1"
-flate2 = "1.0"
+flate2 = { version = "1.0", optional = true }
 log = "0.4"
 num-traits = "0.2.6"
 serde = { version = "1.0", optional = true }
 serde_json = { version = "1.0", optional = true }
-xz2 = "0.1"
+xz2 = { version = "0.1", optional = true }
 
 [features]
-default = ["jsonl"]
+default = [
+    "file-gz",
+    "file-xz",
+    "jsonl",
+]
 # A nice multi-threaded JSONL iterator which puts file reading and JSON parsing into its own
 # threads.
+file-bz2 = ["bzip2"]
+file-gz = ["flate2"]
+file-xz = ["xz2"]
 jsonl = ["serde", "serde_json"]
 
 [dev-dependencies]

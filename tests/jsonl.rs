@@ -21,6 +21,7 @@ struct Deserializeable {
     value: Value,
 }
 
+#[cfg_attr(not(feature = "file-xz"), ignore)]
 #[test]
 fn test_read_compressed_jsonl() {
     let mut iter = parse_jsonl_multi_threaded::<_, (u64, u64)>("./tests/data/jsonl.xz", 1024);
