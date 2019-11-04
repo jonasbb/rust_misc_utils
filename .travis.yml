@@ -57,6 +57,7 @@ script:
   - set -e
   - cargo build --verbose --no-default-features --all
   - cargo build --verbose --all
+  - cargo build --verbose --all-features --all
   # skip this step if clippy is not available, e.g., bad nightly
   # `|| true` to make the command always succeed, because the `set -e` would fail otherwise
   - ( which cargo-clippy >/dev/null 2>&1 && cargo clippy --verbose --all ) || true

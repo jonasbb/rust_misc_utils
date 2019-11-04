@@ -6,6 +6,9 @@
 //! files in a transparent manner.
 //!
 //! Reading compressed files works for `.bz2`/`.gz`/`.xz` files.
+//! The support for for the different file formats is optional.
+//! By default `.gz` and `.xz` are enabled.
+//! The `file-*` features enable support for the corresponding file extensions.
 //!
 //! The example shows how to read a file into a string:
 //!
@@ -55,10 +58,12 @@
 use crate::error::NotAFileError;
 #[cfg(feature = "jsonl")]
 use crate::error::{MtJsonlError, MtJsonlErrorKind};
+#[cfg(feature = "file-bz2")]
 use bzip2::{self, bufread::BzDecoder, write::BzEncoder};
 #[cfg(feature = "jsonl")]
 use failure::Fail;
 use failure::{Error, ResultExt};
+#[cfg(feature = "file-gz")]
 use flate2::{self, bufread::MultiGzDecoder, write::GzEncoder};
 use log::debug;
 #[cfg(feature = "jsonl")]
@@ -76,6 +81,7 @@ use std::{
 };
 #[cfg(feature = "jsonl")]
 use std::{io::BufRead, path::PathBuf, sync::mpsc, thread};
+#[cfg(feature = "file-xz")]
 use xz2::{
     bufread::XzDecoder,
     stream::{Check, MtStreamBuilder},
@@ -186,27 +192,44 @@ fn file_open_read_with_option_do(
     if bufread.read_exact(&mut buffer).is_err() {
         // reset buffer into a valid state
         // this will trigger the plaintext case below
-        buffer = [0; 6];
+
+        // The allow is only needed if compiled with --no-default-features
+        // because all the if branches below will be removed
+        #[allow(unused_assignments)]
+        {
+            buffer = [0; 6];
+        }
     };
     // reset the read position
     bufread
         .seek(SeekFrom::Start(0))
         .context("Failed to seek to start of file.")?;
 
-    // check if file if XZ compressed
-    if buffer[..6] == [0xfd, b'7', b'z', b'X', b'Z', 0x00] {
-        debug!("File {} is detected to have type `xz`", file.display());
-        Ok(Box::new(XzDecoder::new(bufread)))
-    } else if buffer[..2] == [0x1f, 0x8b] {
-        debug!("File {} is detected to have type `gz`", file.display());
-        Ok(Box::new(MultiGzDecoder::new(bufread)))
-    } else if buffer[..3] == [b'B', b'Z', b'h'] {
-        debug!("File {} is detected to have type `bz2`", file.display());
-        Ok(Box::new(BzDecoder::new(bufread)))
-    } else {
-        debug!("Open file {} as plaintext", file.display());
-        Ok(Box::new(bufread))
+    #[cfg(feature = "file-xz")]
+    {
+        // check if file if XZ compressed
+        if buffer[..6] == [0xfd, b'7', b'z', b'X', b'Z', 0x00] {
+            debug!("File {} is detected to have type `xz`", file.display());
+            return Ok(Box::new(XzDecoder::new(bufread)));
+        }
     }
+    #[cfg(feature = "file-gz")]
+    {
+        if buffer[..2] == [0x1f, 0x8b] {
+            debug!("File {} is detected to have type `gz`", file.display());
+            return Ok(Box::new(MultiGzDecoder::new(bufread)));
+        }
+    }
+    #[cfg(feature = "file-bz2")]
+    {
+        if buffer[..3] == [b'B', b'Z', b'h'] {
+            debug!("File {} is detected to have type `bz2`", file.display());
+            return Ok(Box::new(BzDecoder::new(bufread)));
+        }
+    }
+
+    debug!("Open file {} as plaintext", file.display());
+    Ok(Box::new(bufread))
 }
 
 /// Configure behaviour of the [`file_open_write`] function.
@@ -330,13 +353,16 @@ impl Eq for WriteOptions {}
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum FileType {
     /// Create a `bz2` compressed archive.
+    #[cfg(feature = "file-bz2")]
     Bz2,
     /// Create a `gz` compressed archive.
+    #[cfg(feature = "file-gz")]
     Gz,
     /// Create a plaintext file.<br />
     /// This is the default variant.
     PlainText,
     /// Create a `xz` compressed archive.
+    #[cfg(feature = "file-xz")]
     Xz,
 }
 
@@ -392,6 +418,7 @@ impl Default for Compression {
     }
 }
 
+#[cfg(feature = "file-bz2")]
 impl Into<bzip2::Compression> for Compression {
     fn into(self) -> bzip2::Compression {
         use bzip2::Compression::*;
@@ -409,6 +436,7 @@ impl Into<bzip2::Compression> for Compression {
     }
 }
 
+#[cfg(feature = "file-gz")]
 impl Into<flate2::Compression> for Compression {
     fn into(self) -> flate2::Compression {
         use flate2::Compression as FlateCompression;
@@ -480,15 +508,18 @@ where
     };
 
     match options.filetype {
+        #[cfg(feature = "file-bz2")]
         Bz2 => {
             let level = options.compression_level.into();
             Ok(Box::new(BzEncoder::new(bufwrite, level)))
         }
+        #[cfg(feature = "file-gz")]
         Gz => {
             let level = options.compression_level.into();
             Ok(Box::new(GzEncoder::new(bufwrite, level)))
         }
         PlainText => Ok(Box::new(bufwrite)),
+        #[cfg(feature = "file-xz")]
         Xz => {
             let level: XzCompression = options.compression_level.into();
             let threads = clamp(options.threads, 1, u32::max_value());
@@ -813,12 +844,15 @@ pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(),
     let path = path.as_ref();
     let mut options = WriteOptions::default();
     options = match path.extension().and_then(OsStr::to_str) {
+        #[cfg(feature = "file-xz")]
         Some("xz") => options
             .set_filetype(FileType::Xz)
             .set_compression_level(Compression::Default),
+        #[cfg(feature = "file-gz")]
         Some("gzip") | Some("gz") => options
             .set_filetype(FileType::Gz)
             .set_compression_level(Compression::Default),
+        #[cfg(feature = "file-bz2")]
         Some("bzip") | Some("bz2") => options
             .set_filetype(FileType::Bz2)
             .set_compression_level(Compression::Default),

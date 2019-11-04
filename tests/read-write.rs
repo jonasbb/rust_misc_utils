@@ -1,10 +1,11 @@
-use misc_utils::fs::{self, file_open_read, file_open_write, Compression, FileType, WriteOptions};
+use misc_utils::fs::{self, file_open_read, file_open_write, WriteOptions};
+#[cfg(any(feature = "file-gz", feature = "file-xz", feature = "file-bz2"))]
+use misc_utils::fs::{Compression, FileType};
 use pretty_assertions::assert_eq;
 use std::{fs::File, io::prelude::*, path::Path};
 use tempfile::{Builder, NamedTempFile};
 
-const LOREM_IPSUM: &str =
-    r#"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+const LOREM_IPSUM: &str = r#"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
 tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
 vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren,
 no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit
@@ -69,16 +70,19 @@ fn test_read_plaintext() {
     do_read_test(Path::new("./tests/data/lorem.txt"), LOREM_IPSUM);
 }
 
+#[cfg_attr(not(feature = "file-bz2"), ignore)]
 #[test]
 fn test_read_bz2() {
     do_read_test(Path::new("./tests/data/lorem.txt.bz2"), LOREM_IPSUM);
 }
 
+#[cfg_attr(not(feature = "file-gz"), ignore)]
 #[test]
 fn test_read_gz() {
     do_read_test(Path::new("./tests/data/lorem.txt.gz"), LOREM_IPSUM);
 }
 
+#[cfg_attr(not(feature = "file-xz"), ignore)]
 #[test]
 fn test_read_xz() {
     do_read_test(Path::new("./tests/data/lorem.txt.xz"), LOREM_IPSUM);
@@ -90,6 +94,7 @@ fn test_write_plaintext() {
     do_write_test(Path::new("./tests/data/lorem.txt"), options);
 }
 
+#[cfg(feature = "file-bz2")]
 #[test]
 fn test_write_bzip2() {
     let options = WriteOptions::default()
@@ -98,6 +103,7 @@ fn test_write_bzip2() {
     do_write_test(Path::new("./tests/data/lorem.txt.bz2"), options);
 }
 
+#[cfg(feature = "file-gz")]
 #[test]
 fn test_write_gzip() {
     let options = WriteOptions::default()
@@ -106,6 +112,7 @@ fn test_write_gzip() {
     do_write_test(Path::new("./tests/data/lorem.txt.gz"), options);
 }
 
+#[cfg(feature = "file-xz")]
 #[test]
 fn test_write_xz() {
     let options = WriteOptions::default()
@@ -124,16 +131,19 @@ fn test_read_plaintext_fs_bytes() {
     do_read_test_fs_bytes(Path::new("./tests/data/lorem.txt"), LOREM_IPSUM);
 }
 
+#[cfg_attr(not(feature = "file-bz2"), ignore)]
 #[test]
 fn test_read_bz2_fs_bytes() {
     do_read_test_fs_bytes(Path::new("./tests/data/lorem.txt.bz2"), LOREM_IPSUM);
 }
 
+#[cfg_attr(not(feature = "file-gz"), ignore)]
 #[test]
 fn test_read_gz_fs_bytes() {
     do_read_test_fs_bytes(Path::new("./tests/data/lorem.txt.gz"), LOREM_IPSUM);
 }
 
+#[cfg_attr(not(feature = "file-xz"), ignore)]
 #[test]
 fn test_read_xz_fs_bytes() {
     do_read_test_fs_bytes(Path::new("./tests/data/lorem.txt.xz"), LOREM_IPSUM);
@@ -149,16 +159,19 @@ fn test_read_plaintext_fs_string() {
     do_read_test_fs_string(Path::new("./tests/data/lorem.txt"), LOREM_IPSUM);
 }
 
+#[cfg_attr(not(feature = "file-bz2"), ignore)]
 #[test]
 fn test_read_bz2_fs_string() {
     do_read_test_fs_string(Path::new("./tests/data/lorem.txt.bz2"), LOREM_IPSUM);
 }
 
+#[cfg_attr(not(feature = "file-gz"), ignore)]
 #[test]
 fn test_read_gz_fs_string() {
     do_read_test_fs_string(Path::new("./tests/data/lorem.txt.gz"), LOREM_IPSUM);
 }
 
+#[cfg_attr(not(feature = "file-xz"), ignore)]
 #[test]
 fn test_read_xz_fs_string() {
     do_read_test_fs_string(Path::new("./tests/data/lorem.txt.xz"), LOREM_IPSUM);
@@ -169,16 +182,19 @@ fn test_write_plaintext_fs() {
     do_write_test_fs(Path::new("./tests/data/lorem.txt"), ".txt");
 }
 
+#[cfg_attr(not(feature = "file-bz2"), ignore)]
 #[test]
 fn test_write_bzip2_fs() {
     do_write_test_fs(Path::new("./tests/data/lorem.txt.default.bz2"), ".bz2");
 }
 
+#[cfg_attr(not(feature = "file-gz"), ignore)]
 #[test]
 fn test_write_gzip_fs() {
     do_write_test_fs(Path::new("./tests/data/lorem.txt.default.gz"), ".gz");
 }
 
+#[cfg_attr(not(feature = "file-xz"), ignore)]
 #[test]
 fn test_write_xz_fs() {
     do_write_test_fs(Path::new("./tests/data/lorem.txt.default.xz"), ".xz");
