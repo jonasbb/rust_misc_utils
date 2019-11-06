@@ -1,0 +1,31 @@
+# Trigger the workflow on push or pull request
+on: push
+name: Rust CI
+
+jobs:
+  clippy_check:
+    strategy:
+      matrix:
+        os: [
+          "ubuntu-latest",
+          "windows-latest",
+        ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v1
+      - run: rustup component add clippy
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --no-default-features -- -D warnings
+          name: clippy ${{ matrix.os }} --no-default-features
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: -- -D warnings
+          name: clippy ${{ matrix.os }}
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features -- -D warnings
+          name: clippy ${{ matrix.os }} --all-features
