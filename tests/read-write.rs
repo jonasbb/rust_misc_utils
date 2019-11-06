@@ -5,7 +5,8 @@ use pretty_assertions::assert_eq;
 use std::{fs::File, io::prelude::*, path::Path};
 use tempfile::{Builder, NamedTempFile};
 
-const LOREM_IPSUM: &str = r#"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+const LOREM_IPSUM: &str =
+    r#"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
 tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
 vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren,
 no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit
