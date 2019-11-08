@@ -10,25 +10,36 @@ jobs:
           "ubuntu-latest",
           "windows-latest",
         ]
+        rust: [
+          "stable"
+        ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
       - run: rustup component add clippy
       - uses: actions-rs/clippy-check@v1
+        name: clippy "No Default Features" (${{ matrix.os }} / ${{ matrix.rust }})
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --no-default-features -- -D warnings
-          name: clippy ${{ matrix.os }} --no-default-features
+          name: clippy "No Default Features" (${{ matrix.os }} / ${{ matrix.rust }})
       - uses: actions-rs/clippy-check@v1
+        name: clippy "Default" (${{ matrix.os }} / ${{ matrix.rust }})
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: -- -D warnings
-          name: clippy ${{ matrix.os }}
+          name: clippy "Default" (${{ matrix.os }} / ${{ matrix.rust }})
       - uses: actions-rs/clippy-check@v1
+        name: clippy "All Features" (${{ matrix.os }} / ${{ matrix.rust }})
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features -- -D warnings
-          name: clippy ${{ matrix.os }} --all-features
+          name: clippy "All Features" (${{ matrix.os }} / ${{ matrix.rust }})
 
   rustfmt:
     name: Rustfmt
@@ -46,6 +57,7 @@ jobs:
           override: true
       - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1
+        name: Rustfmt Check (${{ matrix.rust }})
         with:
           command: fmt
           args: --all -- --check
@@ -75,17 +87,21 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - uses: actions-rs/cargo@v1
+        name: Build (${{ matrix.os }} / ${{ matrix.rust }})
         with:
           command: build
           args: --all-features
       - uses: actions-rs/cargo@v1
+        name: Test "No Default Features" (${{ matrix.os }} / ${{ matrix.rust }})
         with:
           command: test
           args: --no-default-features
       - uses: actions-rs/cargo@v1
+        name: Test "Default" (${{ matrix.os }} / ${{ matrix.rust }})
         with:
           command: test
       - uses: actions-rs/cargo@v1
+        name: Test "All Features" (${{ matrix.os }} / ${{ matrix.rust }})
         with:
           command: test
           args: --all-features
