@@ -1,0 +1,2 @@
+# The tests assume Linux line endings
+tests/data/*.txt text eol=lf
