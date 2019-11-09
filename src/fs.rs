@@ -172,7 +172,7 @@ fn file_open_read_with_option_do(
     mut options: ReadOptions,
 ) -> Result<Box<dyn Read>, Error> {
     if !file.is_file() {
-        Err(NotAFileError::new(file))?;
+        return Err(NotAFileError::new(file).into());
     }
 
     let f = options
@@ -743,48 +743,44 @@ where
             thread::current().id()
         );
         let mut channel_successful_completed = false;
-        lines_receiver
-            .iter()
-            .map(|batch| {
-                match batch {
-                    ProcessingStatus::Error(e) => {
-                        info!(
-                            "Background parsing thread: pass through error {:?}",
+        lines_receiver.iter().for_each(|batch| {
+            match batch {
+                ProcessingStatus::Error(e) => {
+                    info!(
+                        "Background parsing thread: pass through error {:?}",
+                        thread::current().id()
+                    );
+                    // cannot communicate channel failures
+                    let _ = struct_sender.send(ProcessingStatus::Error(e));
+                }
+                // not the success status for future use
+                ProcessingStatus::Completed => channel_successful_completed = true,
+                ProcessingStatus::Data(batch) => {
+                    let batch: Vec<Result<T, MtJsonlError>> = Deserializer::from_str(&*batch)
+                        .into_iter()
+                        .map(|v| {
+                            v.map_err(|err| {
+                                MtJsonlError::from(err.context(MtJsonlErrorKind::ParsingError))
+                            })
+                        })
+                        .collect();
+
+                    info!(
+                        "Background parsing thread: batch parsed {:?}",
+                        thread::current().id()
+                    );
+                    // cannot communicate channel failures
+                    if struct_sender.send(ProcessingStatus::Data(batch)).is_err() {
+                        warn!(
+                            "Background parsing thread: sent channel error {:?}",
                             thread::current().id()
                         );
-                        // cannot communicate channel failures
-                        let _ = struct_sender.send(ProcessingStatus::Error(e));
+                        // kill on send error
                         return;
                     }
-                    // not the success status for future use
-                    ProcessingStatus::Completed => channel_successful_completed = true,
-                    ProcessingStatus::Data(batch) => {
-                        let batch: Vec<Result<T, MtJsonlError>> = Deserializer::from_str(&*batch)
-                            .into_iter()
-                            .map(|v| {
-                                v.map_err(|err| {
-                                    MtJsonlError::from(err.context(MtJsonlErrorKind::ParsingError))
-                                })
-                            })
-                            .collect();
-
-                        info!(
-                            "Background parsing thread: batch parsed {:?}",
-                            thread::current().id()
-                        );
-                        // cannot communicate channel failures
-                        if struct_sender.send(ProcessingStatus::Data(batch)).is_err() {
-                            warn!(
-                                "Background parsing thread: sent channel error {:?}",
-                                thread::current().id()
-                            );
-                            // kill on send error
-                            return;
-                        }
-                    }
                 }
-            })
-            .count();
+            }
+        });
         if channel_successful_completed {
             info!(
                 "Background parsing thread: successful completed {:?}",
