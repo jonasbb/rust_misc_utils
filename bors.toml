@@ -1,6 +1,23 @@
 # List of commit statuses that must pass on the merge commit before it is pushed to master.
 status = [
-  "continuous-integration/travis-ci/push"
+  "continuous-integration/travis-ci/push",
+
+  "Rustfmt (stable)",
+
+  # Clippy Ubuntu
+  "clippy \"No Default Features\" (ubuntu-latest / stable)",
+  "clippy \"Default\" (ubuntu-latest / stable)",
+  "clippy \"All Features\" (ubuntu-latest / stable)",
+  # Clippy Windows
+  "clippy \"No Default Features\" (windows-latest / stable)",
+  "clippy \"Default\" (windows-latest / stable)",
+  "clippy \"All Features\" (windows-latest / stable)",
+
+  # Ubuntu/Windows stable/nightly
+  "Build and Test (ubuntu-latest, stable)",
+  "Build and Test (ubuntu-latest, nightly)",
+  "Build and Test (windows-latest, stable)",
+  "Build and Test (windows-latest, nightly)",
 ]
 # If set to true, and if the PR branch is on the same repository that bors-ng itself is on, the branch will be deleted.
 delete_merged_branches = true
