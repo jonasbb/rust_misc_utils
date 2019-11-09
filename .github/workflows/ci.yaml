@@ -1,4 +1,3 @@
-# Trigger the workflow on push or pull request
 on: push
 name: Rust CI
 
