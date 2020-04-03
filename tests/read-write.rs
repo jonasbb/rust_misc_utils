@@ -5,8 +5,7 @@ use pretty_assertions::assert_eq;
 use std::{fs::File, io::prelude::*, path::Path};
 use tempfile::{Builder, NamedTempFile};
 
-const LOREM_IPSUM: &str =
-    r#"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
+const LOREM_IPSUM: &str = r#"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
 tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At
 vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren,
 no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit
@@ -199,4 +198,21 @@ fn test_write_gzip_fs() {
 #[test]
 fn test_write_xz_fs() {
     do_write_test_fs(Path::new("./tests/data/lorem.txt.default.xz"), ".xz");
+}
+
+#[test]
+fn test_truncating_write() {
+    let suffix = ".txt";
+    let tmpfile = Builder::new().suffix(suffix).tempfile().unwrap();
+
+    let long_text = "Long Text\n".repeat(20);
+    let short_text = "short\n".repeat(5);
+
+    // First write a long text to expand the file
+    fs::write(tmpfile.path(), &long_text).unwrap();
+    do_read_test(tmpfile.path(), &long_text);
+
+    // Then write something short to see if the file got truncated
+    fs::write(tmpfile.path(), &short_text).unwrap();
+    do_read_test(tmpfile.path(), &short_text);
 }
