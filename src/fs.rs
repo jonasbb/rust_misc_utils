@@ -834,11 +834,13 @@ pub fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String, Error> {
 /// The functions chooses the filetype based on the extension.
 /// If a recognized extension is used the file will be compressed otherwise the file will be written as plaintext.
 /// If compression is used, it will use the default (6) compression ratio.
+/// The method will truncate the file before writing, such that `contents` will be the only content of the file.
 ///
 /// The API mirrors the function in [`std::fs::write`] except for the error type.
 pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(), Error> {
     let path = path.as_ref();
     let mut options = WriteOptions::default();
+    options.open_options.truncate(true);
     options = match path.extension().and_then(OsStr::to_str) {
         #[cfg(feature = "file-xz")]
         Some("xz") => options
