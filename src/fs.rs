@@ -55,14 +55,12 @@
 //!
 //! [JSONL]: http://jsonlines.org/
 
-use crate::error::NotAFileError;
 #[cfg(feature = "jsonl")]
-use crate::error::{MtJsonlError, MtJsonlErrorKind};
+use crate::error::MtJsonlError;
+use crate::error::NotAFileError;
+use anyhow::{Context, Error};
 #[cfg(feature = "file-bz2")]
 use bzip2::{self, bufread::BzDecoder, write::BzEncoder};
-#[cfg(feature = "jsonl")]
-use failure::Fail;
-use failure::{Error, ResultExt};
 #[cfg(feature = "file-gz")]
 use flate2::{self, bufread::MultiGzDecoder, write::GzEncoder};
 use log::debug;
@@ -72,6 +70,8 @@ use log::{info, warn};
 use serde::de::DeserializeOwned;
 #[cfg(feature = "jsonl")]
 use serde_json::Deserializer;
+#[cfg(feature = "backtrace")]
+use std::backtrace::Backtrace;
 use std::{
     borrow::Borrow,
     ffi::OsStr,
@@ -605,7 +605,7 @@ where
                     Ok(x) => Ok(x),
                     Err(err) => {
                         info!("{:?}", err);
-                        Err(err.context(MtJsonlErrorKind::ParsingError).into())
+                        Err(err)
                     }
                 });
             } else if let Some(state) = self.iter.next() {
@@ -622,7 +622,16 @@ where
             return if self.did_complete {
                 None
             } else {
-                Some(Err(MtJsonlErrorKind::NotCompleted.into()))
+                #[cfg(not(feature = "backtrace"))]
+                {
+                    Some(Err(MtJsonlError::NotCompleted))
+                }
+                #[cfg(feature = "backtrace")]
+                {
+                    Some(Err(MtJsonlError::NotCompleted {
+                        backtrace: Backtrace::capture(),
+                    }))
+                }
             };
         }
     }
@@ -669,20 +678,20 @@ where
         );
         let mut rdr = match file_open_read(&path) {
             Ok(rdr) => BufReader::new(rdr),
-            Err(e) => {
+            Err(err) => {
                 warn!(
                     "Background reading thread cannot open file {} {:?}",
                     path.display(),
                     thread::current().id()
                 );
                 // cannot communicate channel failures
-                let _ = lines_sender.send(ProcessingStatus::Error(
-                    e.context(MtJsonlErrorKind::IoError {
-                        msg: "Background reading thread cannot open file".to_string(),
-                        file: path.to_path_buf(),
-                    })
-                    .into(),
-                ));
+                let _ = lines_sender.send(ProcessingStatus::Error(MtJsonlError::IoError {
+                    msg: "Background reading thread cannot open file".to_string(),
+                    file: path.to_path_buf(),
+                    source: err,
+                    #[cfg(feature = "backtrace")]
+                    backtrace: Backtrace::capture(),
+                }));
                 return;
             }
         };
@@ -696,19 +705,19 @@ where
                         break;
                     }
                     Ok(_) => {}
-                    Err(e) => {
+                    Err(err) => {
                         warn!(
                             "Background reading thread cannot read line {:?}",
                             thread::current().id()
                         );
                         // cannot communicate channel failures
-                        let _ = lines_sender.send(ProcessingStatus::Error(
-                            e.context(MtJsonlErrorKind::IoError {
-                                msg: "Background reading thread cannot read line".to_string(),
-                                file: path.to_path_buf(),
-                            })
-                            .into(),
-                        ));
+                        let _ = lines_sender.send(ProcessingStatus::Error(MtJsonlError::IoError {
+                            msg: "Background reading thread cannot read line".to_string(),
+                            file: path.to_path_buf(),
+                            source: err.into(),
+                            #[cfg(feature = "backtrace")]
+                            backtrace: Backtrace::capture(),
+                        }));
                         return;
                     }
                 }
@@ -755,8 +764,10 @@ where
                     let batch: Vec<Result<T, MtJsonlError>> = Deserializer::from_str(&*batch)
                         .into_iter()
                         .map(|v| {
-                            v.map_err(|err| {
-                                MtJsonlError::from(err.context(MtJsonlErrorKind::ParsingError))
+                            v.map_err(|err| MtJsonlError::ParsingError {
+                                source: err,
+                                #[cfg(feature = "backtrace")]
+                                backtrace: Backtrace::capture(),
                             })
                         })
                         .collect();
@@ -779,7 +790,7 @@ where
         });
         if channel_successful_completed {
             info!(
-                "Background parsing thread: successful completed {:?}",
+                "Background parsing thread: successfully completed {:?}",
                 thread::current().id()
             );
             if struct_sender.send(ProcessingStatus::Completed).is_err() {
