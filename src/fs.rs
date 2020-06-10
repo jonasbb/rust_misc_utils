@@ -837,6 +837,9 @@ pub fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String, Error> {
 /// The method will truncate the file before writing, such that `contents` will be the only content of the file.
 ///
 /// The API mirrors the function in [`std::fs::write`] except for the error type.
+
+// Required for no-default-features
+#[allow(clippy::match_single_binding)]
 pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(), Error> {
     let path = path.as_ref();
     let mut options = WriteOptions::default();
