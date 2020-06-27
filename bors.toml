@@ -1,7 +1,5 @@
 # List of commit statuses that must pass on the merge commit before it is pushed to master.
 status = [
-  "continuous-integration/travis-ci/push",
-
   "Rustfmt (stable)",
 
   # Clippy Ubuntu
