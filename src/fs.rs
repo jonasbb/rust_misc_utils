@@ -421,17 +421,13 @@ impl Default for Compression {
 #[cfg(feature = "file-bz2")]
 impl Into<bzip2::Compression> for Compression {
     fn into(self) -> bzip2::Compression {
-        use bzip2::Compression::*;
+        use bzip2::Compression as BzipCompression;
 
         match self {
-            Compression::Fastest => Fastest,
-            Compression::Numeric(n) if n <= 3 => Fastest,
-            Compression::Default => Default,
-            Compression::Numeric(n) if 4 <= n && n <= 6 => Default,
-            Compression::Numeric(n) if 7 <= n && n <= 9 => Best,
-            Compression::Best |
-            // catchall for all values > 9
-            Compression::Numeric(_) => Best,
+            Compression::Fastest => BzipCompression::fast(),
+            Compression::Default => BzipCompression::default(),
+            Compression::Best => BzipCompression::best(),
+            Compression::Numeric(n) => BzipCompression::new(clamp(u32::from(n), 0, 9)),
         }
     }
 }
