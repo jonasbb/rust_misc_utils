@@ -15,7 +15,7 @@ name = "misc_utils"
 path = "src/lib.rs"
 
 [dependencies]
-bzip2 = { version = "0.3", optional = true }
+bzip2 = { version = "0.4", optional = true }
 failure = "0.1.1"
 flate2 = { version = "1.0", optional = true }
 log = "0.4"
