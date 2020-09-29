@@ -15,13 +15,14 @@ name = "misc_utils"
 path = "src/lib.rs"
 
 [dependencies]
+anyhow = "1.0.32"
 bzip2 = { version = "0.4.1", optional = true }
-failure = "0.1.1"
 flate2 = { version = "1.0", optional = true }
 log = "0.4"
 num-traits = "0.2.6"
 serde = { version = "1.0", optional = true }
 serde_json = { version = "1.0", optional = true }
+thiserror = "1.0.16"
 xz2 = { version = "0.1", optional = true }
 
 [features]
@@ -30,11 +31,11 @@ default = [
     "file-xz",
     "jsonl",
 ]
-# A nice multi-threaded JSONL iterator which puts file reading and JSON parsing into its own
-# threads.
 file-bz2 = ["bzip2"]
 file-gz = ["flate2"]
 file-xz = ["xz2"]
+# A nice multi-threaded JSONL iterator which puts file reading and JSON parsing into its own
+# threads.
 jsonl = ["serde", "serde_json"]
 
 [dev-dependencies]
