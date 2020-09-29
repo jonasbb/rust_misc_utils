@@ -31,7 +31,6 @@ default = [
     "file-xz",
     "jsonl",
 ]
-backtrace = []
 file-bz2 = ["bzip2"]
 file-gz = ["flate2"]
 file-xz = ["xz2"]

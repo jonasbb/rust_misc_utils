@@ -12,8 +12,6 @@
 )]
 #![warn(rust_2018_idioms)]
 #![doc(html_root_url = "https://docs.rs/misc_utils/2.5.2")]
-// Enable the nightly backtrace feature if enabled with feature flags
-#![cfg_attr(feature = "backtrace", feature(backtrace))]
 
 //! This crate contains miscellaneous utility functions
 //!

@@ -70,8 +70,6 @@ use log::{info, warn};
 use serde::de::DeserializeOwned;
 #[cfg(feature = "jsonl")]
 use serde_json::Deserializer;
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
 use std::{
     borrow::Borrow,
     ffi::OsStr,
@@ -622,16 +620,7 @@ where
             return if self.did_complete {
                 None
             } else {
-                #[cfg(not(feature = "backtrace"))]
-                {
-                    Some(Err(MtJsonlError::NotCompleted))
-                }
-                #[cfg(feature = "backtrace")]
-                {
-                    Some(Err(MtJsonlError::NotCompleted {
-                        backtrace: Backtrace::capture(),
-                    }))
-                }
+                Some(Err(MtJsonlError::NotCompleted))
             };
         }
     }
@@ -689,8 +678,6 @@ where
                     msg: "Background reading thread cannot open file".to_string(),
                     file: path.to_path_buf(),
                     source: err,
-                    #[cfg(feature = "backtrace")]
-                    backtrace: Backtrace::capture(),
                 }));
                 return;
             }
@@ -715,8 +702,6 @@ where
                             msg: "Background reading thread cannot read line".to_string(),
                             file: path.to_path_buf(),
                             source: err.into(),
-                            #[cfg(feature = "backtrace")]
-                            backtrace: Backtrace::capture(),
                         }));
                         return;
                     }
@@ -763,13 +748,7 @@ where
                 ProcessingStatus::Data(batch) => {
                     let batch: Vec<Result<T, MtJsonlError>> = Deserializer::from_str(&*batch)
                         .into_iter()
-                        .map(|v| {
-                            v.map_err(|err| MtJsonlError::ParsingError {
-                                source: err,
-                                #[cfg(feature = "backtrace")]
-                                backtrace: Backtrace::capture(),
-                            })
-                        })
+                        .map(|v| v.map_err(|err| MtJsonlError::ParsingError { source: err }))
                         .collect();
 
                     info!(

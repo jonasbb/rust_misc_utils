@@ -2,8 +2,6 @@
 //!
 //! See the description of the individual error types for more details.
 
-#[cfg(feature = "backtrace")]
-use std::backtrace::Backtrace;
 use std::path::{Path, PathBuf};
 
 /// Error value for elements returned by [`MtJsonl`](crate::fs::MtJsonl).
@@ -13,20 +11,10 @@ use std::path::{Path, PathBuf};
 #[allow(variant_size_differences)]
 #[derive(Debug, thiserror::Error)]
 pub enum MtJsonlError {
-    #[cfg(not(feature = "backtrace"))]
     /// Indicates some error while processing the file.
     /// Not all lines in the file were processed.
     #[error("Reading the file has failed and not all entries could be read.")]
     NotCompleted,
-
-    #[cfg(feature = "backtrace")]
-    /// Indicates some error while processing the file.
-    /// Not all lines in the file were processed.
-    #[error("Reading the file has failed and not all entries could be read.")]
-    NotCompleted {
-        /// Backtrace where the error originated from
-        backtrace: Backtrace,
-    },
 
     /// Some error occured while opening or reading the file.
     /// Created in the reader thread based on a [`std::io::Error`].
@@ -39,9 +27,6 @@ pub enum MtJsonlError {
         /// Underlying IO Error
         #[source]
         source: anyhow::Error,
-        /// Backtrace where the error originated from
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
 
     /// Some error occured while parsing a JSON value
@@ -52,9 +37,6 @@ pub enum MtJsonlError {
         #[from]
         #[source]
         source: serde_json::Error,
-        /// Backtrace where the error originated from
-        #[cfg(feature = "backtrace")]
-        backtrace: Backtrace,
     },
 }
 
@@ -64,9 +46,6 @@ pub enum MtJsonlError {
 pub struct NotAFileError {
     /// The path which produced the error.
     pub path: PathBuf,
-    /// Backtrace where the error originated from
-    #[cfg(feature = "backtrace")]
-    backtrace: Backtrace,
 }
 
 impl NotAFileError {
@@ -77,8 +56,6 @@ impl NotAFileError {
     {
         Self {
             path: path.as_ref().to_path_buf(),
-            #[cfg(feature = "backtrace")]
-            backtrace: Backtrace::capture(),
         }
     }
 }
