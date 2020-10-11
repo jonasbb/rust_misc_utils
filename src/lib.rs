@@ -11,7 +11,7 @@
     variant_size_differences
 )]
 #![warn(rust_2018_idioms)]
-#![doc(html_root_url = "https://docs.rs/misc_utils/2.5.2")]
+#![doc(html_root_url = "https://docs.rs/misc_utils/3.0.0")]
 
 //! This crate contains miscellaneous utility functions
 //!
