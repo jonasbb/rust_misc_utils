@@ -56,7 +56,7 @@
 //!
 //! Create multiple thread reading and parsing a [JSONL] file.
 //!
-//! This function is especially usefull if the file is compressed with a high compression (such as
+//! This function is especially useful if the file is compressed with a high compression (such as
 //! xz2) and the parsing overhead is non-negligible. The inter-thread communication is batched to
 //! reduce overhead.
 //!
@@ -257,7 +257,7 @@ pub enum Compression {
     Default,
     /// Provide the best compression possible.
     Best,
-    /// Fine-grained controll over the compression for the `xz` algorithm. Allowed values are `0-9`.
+    /// Fine-grained control over the compression for the `xz` algorithm. Allowed values are `0-9`.
     Numeric(u8),
 }
 
@@ -337,7 +337,7 @@ pub struct WriteBuilder {
     ///
     /// The filetype is guessed from the file extensions using [`guess_file_type`].
     filetype: Option<FileType>,
-    /// Path where the file will be writtern.
+    /// Path where the file will be written.
     path: PathBuf,
     /// Controls how the file will be opened.
     open_options: OpenOptions,
