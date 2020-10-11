@@ -1,6 +1,6 @@
 //! This module contains functions related to filesystem operations.
 //!
-//! ## [`file_open_read`] / [`file_open_read_with_options`]
+//! ## [`file_open_read`] / [`file_open_read_with_capacity`]
 //!
 //! These functions are convenience wrappers around file I/O. They allow reading of compressed
 //! files in a transparent manner.
@@ -23,20 +23,32 @@
 //! # }
 //! ```
 //!
-//! ## [`file_open_write`]
+//! ## [`file_write`]
 //!
 //! Similar to [`file_open_read`] this functions is a convenience wrapper but for writing
 //! compressed files. The function always requires an argument as the filetype has to be specified.
-//! Using [`Default::default`] is an option and will write a plaintext file.
+//! The function detects the correct filetype from the file extension.
+//! The detected choice can be overwritten using [`WriteBuilder::filetype`].
 //!
+//! There are two modes the file can be opened, in either the [`truncate`] or the [`append`] mode.
 //!
 //! ```no_run
-//! # extern crate misc_utils;
-//! # use misc_utils::fs::file_open_write;
+//! # use misc_utils::fs::file_write;
 //! #
-//! # fn main() {
-//! let mut writer = file_open_write("./text.txt", Default::default()).unwrap();
-//! writer.write_all("Hello World".as_bytes()).unwrap();
+//! # fn main() -> Result<(), anyhow::Error> {
+//! let mut writer = file_write("./text.txt").truncate()?;
+//! writer.write_all("Hello World".as_bytes())?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ```no_run
+//! # use misc_utils::fs::file_write;
+//! #
+//! # fn main() -> Result<(), anyhow::Error> {
+//! let mut writer = file_write("./text.txt").append()?;
+//! writer.write_all("Hello World".as_bytes())?;
+//! # Ok(())
 //! # }
 //! ```
 //!
@@ -44,14 +56,12 @@
 //!
 //! Create multiple thread reading and parsing a [JSONL] file.
 //!
-//! This function is especially usefull if the file is compressed with a high compression (such as
+//! This function is especially useful if the file is compressed with a high compression (such as
 //! xz2) and the parsing overhead is non-negligible. The inter-thread communication is batched to
 //! reduce overhead.
 //!
-//! [`file_open_read`]: crate::fs::file_open_read
-//! [`file_open_read_with_options`]: crate::fs::file_open_read_with_options
-//! [`file_open_write`]: crate::fs::file_open_write
-//! [`parse_jsonl_multi_threaded`]: crate::fs::parse_jsonl_multi_threaded
+//! [`append`]: WriteBuilder::append
+//! [`truncate`]: WriteBuilder::truncate
 //!
 //! [JSONL]: http://jsonlines.org/
 
@@ -71,14 +81,13 @@ use serde::de::DeserializeOwned;
 #[cfg(feature = "jsonl")]
 use serde_json::Deserializer;
 use std::{
-    borrow::Borrow,
     ffi::OsStr,
     fs::OpenOptions,
     io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 #[cfg(feature = "jsonl")]
-use std::{io::BufRead, path::PathBuf, sync::mpsc, thread};
+use std::{io::BufRead, sync::mpsc, thread};
 #[cfg(feature = "file-xz")]
 use xz2::{
     bufread::XzDecoder,
@@ -86,63 +95,25 @@ use xz2::{
     write::XzEncoder,
 };
 
-/// Configure behaviour of the [`file_open_read_with_options`] function.
-///
-/// [`file_open_read_with_options`]: ./fn.file_open_read_with_options.html
-#[derive(Clone, Debug)]
-pub struct ReadOptions {
-    buffer_capacity: Option<usize>,
-    open_options: OpenOptions,
-}
-
-impl ReadOptions {
-    /// Create a new `ReadOptions` with default settings.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Sets the capacity of the [`BufReader`] to `capacity` in Bytes.
-    ///
-    /// [`BufReader`]: https://doc.rust-lang.org/std/io/struct.BufReader.html
-    pub fn set_buffer_capacity(mut self, capacity: usize) -> Self {
-        self.buffer_capacity = Some(capacity);
-        self
-    }
-
-    /// Specify a set of [`OpenOptions`] to use.
-    ///
-    /// The option `read` will always be overwritten to `true` and `write` will always be set to
-    /// `false`.
-    ///
-    /// [`OpenOptions`]: https://doc.rust-lang.org/std/fs/struct.OpenOptions.html
-    pub fn set_open_options<B>(mut self, open_options: B) -> Self
-    where
-        B: Borrow<OpenOptions>,
-    {
-        self.open_options = open_options.borrow().clone();
-        self
-    }
-}
-
-impl Default for ReadOptions {
-    fn default() -> Self {
-        Self {
-            buffer_capacity: None,
-            open_options: OpenOptions::new(),
-        }
-    }
-}
+// This is unused when --all-features is given
+#[allow(unused_imports)]
+use anyhow::bail;
 
 /// Create reader for uncompressed or compressed files transparently.
 ///
-/// See [`file_open_read_with_options`] for the full documentation.
+/// This function opens the given `file` and tries to determine the filetype by reading the magic
+/// bytes from the start of the file. If a known archive type, like xz, gz, or bz2, is found this
+/// function will transparent create a reader which decompresses the data on the fly.
 ///
-/// [`file_open_read_with_options`]: ./fn.file_open_read_with_options.html
+/// File I/O will always be buffered using a [`BufReader`].
+/// You can use [`file_open_read_with_capacity`] to specify the buffer size.
+///
+/// [`BufReader`]: https://doc.rust-lang.org/std/io/struct.BufReader.html
 pub fn file_open_read<P>(file: P) -> Result<Box<dyn Read>, Error>
 where
     P: AsRef<Path>,
 {
-    file_open_read_with_option_do(file.as_ref(), ReadOptions::default())
+    do_file_open_read(file.as_ref(), None)
 }
 
 /// Create reader for uncompressed or compressed files transparently.
@@ -152,34 +123,31 @@ where
 /// function will transparent create a reader which decompresses the data on the fly.
 ///
 /// File I/O will always be buffered using a [`BufReader`].
-///
-/// The behaviour of this function can be configured using [`ReadOptions`]. See the documentation
-/// on the struct for details.
+/// The `buffer_capacity` argument specifies the capacity of the [`BufReader`] in bytes.
 ///
 /// [`BufReader`]: https://doc.rust-lang.org/std/io/struct.BufReader.html
-/// [`ReadOptions`]: ./struct.ReadOptions.html
-pub fn file_open_read_with_options<P>(file: P, options: ReadOptions) -> Result<Box<dyn Read>, Error>
+pub fn file_open_read_with_capacity<P>(
+    file: P,
+    buffer_capacity: usize,
+) -> Result<Box<dyn Read>, Error>
 where
     P: AsRef<Path>,
 {
-    file_open_read_with_option_do(file.as_ref(), options)
+    do_file_open_read(file.as_ref(), Some(buffer_capacity))
 }
 
-fn file_open_read_with_option_do(
-    file: &Path,
-    mut options: ReadOptions,
-) -> Result<Box<dyn Read>, Error> {
+fn do_file_open_read(file: &Path, buffer_capacity: Option<usize>) -> Result<Box<dyn Read>, Error> {
     if !file.is_file() {
         return Err(NotAFileError::new(file).into());
     }
 
-    let f = options
-        .open_options
+    let f = OpenOptions::new()
+        .create(false)
         .read(true)
         .write(false)
         .open(file)
         .context(format!("Could not open file {}", file.display()))?;
-    let mut bufread = if let Some(size) = options.buffer_capacity {
+    let mut bufread = if let Some(size) = buffer_capacity {
         BufReader::with_capacity(size, f)
     } else {
         BufReader::new(f)
@@ -190,162 +158,47 @@ fn file_open_read_with_option_do(
     if bufread.read_exact(&mut buffer).is_err() {
         // reset buffer into a valid state
         // this will trigger the plaintext case below
-
-        // The allow is only needed if compiled with --no-default-features
-        // because all the if branches below will be removed
-        #[allow(unused_assignments)]
-        {
-            buffer = [0; 6];
-        }
+        buffer = [0; 6];
     };
     // reset the read position
     bufread
         .seek(SeekFrom::Start(0))
         .context("Failed to seek to start of file.")?;
 
-    #[cfg(feature = "file-xz")]
-    {
-        // check if file if XZ compressed
-        if buffer[..6] == [0xfd, b'7', b'z', b'X', b'Z', 0x00] {
-            debug!("File {} is detected to have type `xz`", file.display());
-            return Ok(Box::new(XzDecoder::new(bufread)));
-        }
+    if buffer[..6] == [0xfd, b'7', b'z', b'X', b'Z', 0x00] {
+        debug!("File {} is detected to have type `xz`", file.display());
+        #[cfg(feature = "file-xz")]
+        return Ok(Box::new(XzDecoder::new(bufread)));
+        #[cfg(not(feature = "file-xz"))]
+        bail!(
+            "File {} is detected to have type `xz`, but the file-xz feature is not enabled.",
+            file.display()
+        );
     }
-    #[cfg(feature = "file-gz")]
-    {
-        if buffer[..2] == [0x1f, 0x8b] {
-            debug!("File {} is detected to have type `gz`", file.display());
-            return Ok(Box::new(MultiGzDecoder::new(bufread)));
-        }
+    if buffer[..2] == [0x1f, 0x8b] {
+        debug!("File {} is detected to have type `gz`", file.display());
+        #[cfg(feature = "file-gz")]
+        return Ok(Box::new(MultiGzDecoder::new(bufread)));
+        #[cfg(not(feature = "file-gz"))]
+        bail!(
+            "File {} is detected to have type `gz`, but the file-gz feature is not enabled.",
+            file.display()
+        );
     }
-    #[cfg(feature = "file-bz2")]
-    {
-        if buffer[..3] == [b'B', b'Z', b'h'] {
-            debug!("File {} is detected to have type `bz2`", file.display());
-            return Ok(Box::new(BzDecoder::new(bufread)));
-        }
+    if buffer[..3] == [b'B', b'Z', b'h'] {
+        debug!("File {} is detected to have type `bz2`", file.display());
+        #[cfg(feature = "file-bz2")]
+        return Ok(Box::new(BzDecoder::new(bufread)));
+        #[cfg(not(feature = "file-bz2"))]
+        bail!(
+            "File {} is detected to have type `bz2`, but the file-bz2 feature is not enabled.",
+            file.display()
+        );
     }
 
     debug!("Open file {} as plaintext", file.display());
     Ok(Box::new(bufread))
 }
-
-/// Configure behaviour of the [`file_open_write`] function.
-///
-/// # Defaults
-///
-/// ```text
-/// WriteOptions {
-///     buffer_capacity: None,
-///     compression_level: Compression::Default,
-///     filetype: FileType::PlainText,
-///     open_options: OpenOptions::new(),
-///     threads: 1,
-/// };
-/// ```
-///
-/// [`file_open_write`]: ./fn.file_open_write.html
-#[derive(Clone, Debug)]
-pub struct WriteOptions {
-    buffer_capacity: Option<usize>,
-    compression_level: Compression,
-    filetype: FileType,
-    open_options: OpenOptions,
-    threads: u32,
-}
-
-impl WriteOptions {
-    /// Create a new `WriteOptions` with default settings.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Sets the capacity of the [`BufReader`] to `capacity` in Bytes.
-    ///
-    /// [`BufReader`]: https://doc.rust-lang.org/std/io/struct.BufReader.html
-    pub fn set_buffer_capacity(mut self, capacity: usize) -> Self {
-        self.buffer_capacity = Some(capacity);
-        self
-    }
-
-    /// Sets the compression level for archives.
-    ///
-    /// This configures the compression level used. This option has no effect if the [`FileType`]
-    /// is `PlainText`. See [`Compression`] for a description of the possible values.
-    ///
-    /// [`Compression`]: ./enum.Compression.html
-    /// [`FileType`]: ./enum.FileType.html
-    pub fn set_compression_level(mut self, compression: Compression) -> Self {
-        self.compression_level = compression;
-        self
-    }
-
-    /// Sets the output filetype.
-    ///
-    /// This specifies if the file will be plaintext or which archive form will be used. See
-    /// [`FileType`] for details on the possible values.
-    ///
-    /// [`FileType`]: ./enum.FileType.html
-    pub fn set_filetype(mut self, ty: FileType) -> Self {
-        self.filetype = ty;
-        self
-    }
-
-    /// Specify a set of [`OpenOptions`] to use.
-    ///
-    /// The option `read` will always be overwritten to `false` and `write` will always be set to
-    /// `true`.
-    ///
-    /// This allows to specify flags like `append` or `truncate` while writing.
-    ///
-    /// [`OpenOptions`]: https://doc.rust-lang.org/std/fs/struct.OpenOptions.html
-    pub fn set_open_options<B>(mut self, open_options: B) -> Self
-    where
-        B: Borrow<OpenOptions>,
-    {
-        self.open_options = open_options.borrow().clone();
-        self
-    }
-
-    /// Specify the maximal number of threads used for compression.
-    ///
-    /// This gives a hint to the encoder that threading is wanted. This feature is currently only
-    /// used with `xz`. The writer will the value of `threads` as a maximal number.
-    ///
-    /// Setting this option to `0` has the same effect as setting it to `1`.
-    pub fn set_threads(mut self, mut threads: u32) -> Self {
-        if threads == 0 {
-            threads = 1;
-        }
-        self.threads = threads;
-        self
-    }
-}
-
-impl Default for WriteOptions {
-    fn default() -> Self {
-        let mut open_options = OpenOptions::new();
-        open_options.create(true);
-        Self {
-            buffer_capacity: None,
-            compression_level: Compression::default(),
-            filetype: FileType::default(),
-            open_options,
-            threads: 1,
-        }
-    }
-}
-
-impl PartialEq for WriteOptions {
-    fn eq(&self, other: &Self) -> bool {
-        self.buffer_capacity == other.buffer_capacity
-            && self.compression_level == other.compression_level
-            && self.filetype == other.filetype
-            && self.threads == other.threads
-    }
-}
-
-impl Eq for WriteOptions {}
 
 /// Specify the output filetype.
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -356,8 +209,7 @@ pub enum FileType {
     /// Create a `gz` compressed archive.
     #[cfg(feature = "file-gz")]
     Gz,
-    /// Create a plaintext file.<br />
-    /// This is the default variant.
+    /// Create a plaintext file (default).
     PlainText,
     /// Create a `xz` compressed archive.
     #[cfg(feature = "file-xz")]
@@ -405,7 +257,7 @@ pub enum Compression {
     Default,
     /// Provide the best compression possible.
     Best,
-    /// Fine-grained controll over the compression for the `xz` algorithm. Allowed values are `0-9`.
+    /// Fine-grained control over the compression for the `xz` algorithm. Allowed values are `0-9`.
     Numeric(u8),
 }
 
@@ -472,68 +324,193 @@ fn clamp<T: PartialOrd>(input: T, min: T, max: T) -> T {
     }
 }
 
-/// Create writers for plaintext or compressed files.
-///
-/// This function can open a file with different compressors enabled. It hides the complexity of
-/// creating the correct writer behind the [`WriteOptions`] builder. See the documentation on the
-/// struct for more details.
-///
-/// File I/O will always be buffered using a [`BufReader`].
-///
-/// Flushing the writer will not write all the data to file. Archives require some finalizer which
-/// is only written if the writer is being dropped.
-pub fn file_open_write<P>(file: P, mut options: WriteOptions) -> Result<Box<dyn Write>, Error>
-where
-    P: AsRef<Path>,
-{
-    use self::FileType::*;
-    let file = file.as_ref();
+/// Builder to control how the writeable file will be opened.
+#[derive(Debug)]
+pub struct WriteBuilder {
+    /// Controls the buffer size of the [`BufWriter`].
+    buffer_capacity: Option<usize>,
+    /// Compression level of the file.
+    ///
+    /// Ignored for [`FileType::PlainText`].
+    compression_level: Compression,
+    /// FileType of the new file.
+    ///
+    /// The filetype is guessed from the file extensions using [`guess_file_type`].
+    filetype: Option<FileType>,
+    /// Path where the file will be written.
+    path: PathBuf,
+    /// Controls how the file will be opened.
+    open_options: OpenOptions,
+    /// Number of threads used during compression.
+    ///
+    /// Ignored for [`FileType::PlainText`].
+    threads: u8,
+}
 
-    let f = options
-        .open_options
-        .read(false)
-        .write(true)
-        .open(file)
-        .context(format!("Could not open file {}", file.display()))?;
-    let bufwrite = if let Some(size) = options.buffer_capacity {
-        BufWriter::with_capacity(size, f)
-    } else {
-        BufWriter::new(f)
-    };
+impl WriteBuilder {
+    /// Create a new [`WriteBuilder`] for a given path.
+    ///
+    /// See the individual methods for the available configuration options.
+    pub fn new(path: PathBuf) -> Self {
+        let mut open_options = OpenOptions::new();
+        open_options.read(false).write(true);
 
-    match options.filetype {
-        #[cfg(feature = "file-bz2")]
-        Bz2 => {
-            let level = options.compression_level.into();
-            Ok(Box::new(BzEncoder::new(bufwrite, level)))
+        WriteBuilder {
+            path,
+            filetype: None,
+            open_options,
+
+            buffer_capacity: Default::default(),
+            compression_level: Default::default(),
+            threads: 1,
         }
-        #[cfg(feature = "file-gz")]
-        Gz => {
-            let level = options.compression_level.into();
-            Ok(Box::new(GzEncoder::new(bufwrite, level)))
+    }
+
+    /// Open the file in *append* mode.
+    pub fn append(&mut self) -> Result<Box<dyn Write>, Error> {
+        self.open_options.append(true);
+        self.open()
+    }
+
+    /// Open the file in *truncate* mode.
+    ///
+    pub fn truncate(&mut self) -> Result<Box<dyn Write>, Error> {
+        self.open_options.truncate(true);
+        self.open()
+    }
+
+    fn open(&mut self) -> Result<Box<dyn Write>, Error> {
+        use self::FileType::*;
+
+        if self.filetype.is_none() {
+            self.filetype = Some(guess_file_type(&self.path)?);
         }
-        PlainText => Ok(Box::new(bufwrite)),
-        #[cfg(feature = "file-xz")]
-        Xz => {
-            let level: XzCompression = options.compression_level.into();
-            let threads = clamp(options.threads, 1, u32::max_value());
-            if threads == 1 {
-                Ok(Box::new(XzEncoder::new(bufwrite, level.0)))
-            } else {
-                let stream = MtStreamBuilder::new()
-                    .preset(level.0)
-                    .threads(threads)
-                    // let LZMA2 choose the best blocksize
-                    .block_size(0)
-                    // use the same value as the xz command line tool
-                    .timeout_ms(300)
-                    .check(Check::Crc64)
-                    .encoder()
-                    .context("Failed to initialize the xz multithreaded stream")?;
-                Ok(Box::new(XzEncoder::new_stream(bufwrite, stream)))
+
+        let file = self
+            .open_options
+            .open(&self.path)
+            .context(format!("Could not open file {}", self.path.display()))?;
+        let bufwrite = if let Some(size) = self.buffer_capacity {
+            BufWriter::with_capacity(size, file)
+        } else {
+            BufWriter::new(file)
+        };
+
+        match self
+            .filetype
+            .expect("FileType is set based on extension if it was None")
+        {
+            #[cfg(feature = "file-bz2")]
+            Bz2 => {
+                let level = self.compression_level.into();
+                Ok(Box::new(BzEncoder::new(bufwrite, level)))
+            }
+            #[cfg(feature = "file-gz")]
+            Gz => {
+                let level = self.compression_level.into();
+                Ok(Box::new(GzEncoder::new(bufwrite, level)))
+            }
+            PlainText => Ok(Box::new(bufwrite)),
+            #[cfg(feature = "file-xz")]
+            Xz => {
+                let level: XzCompression = self.compression_level.into();
+                let threads = clamp(self.threads, 1, u8::max_value());
+                if threads == 1 {
+                    Ok(Box::new(XzEncoder::new(bufwrite, level.0)))
+                } else {
+                    let stream = MtStreamBuilder::new()
+                        .preset(level.0)
+                        .threads(u32::from(threads))
+                        // let LZMA2 choose the best blocksize
+                        .block_size(0)
+                        // use the same value as the xz command line tool
+                        .timeout_ms(300)
+                        .check(Check::Crc64)
+                        .encoder()
+                        .context("Failed to initialize the xz multithreaded stream")?;
+                    Ok(Box::new(XzEncoder::new_stream(bufwrite, stream)))
+                }
             }
         }
     }
+
+    /// Sets the capacity of the [`BufWriter`] to `capacity` in Bytes.
+    pub fn buffer_capacity(&mut self, buffer_capacity: usize) -> &mut Self {
+        self.buffer_capacity = Some(buffer_capacity);
+        self
+    }
+
+    /// Sets the option to create a new file, or open it if it already exists.
+    ///
+    /// This function is analogue to [`std::fs::OpenOptions::create`].
+    pub fn create(&mut self, create: bool) -> &mut Self {
+        self.open_options.create(create);
+        self
+    }
+
+    /// Sets the option to create a new file, failing if it already exists.
+    ///
+    /// This function is analogue to [`std::fs::OpenOptions::create_new`].
+    ///
+    /// No file is allowed to exist at the target location, also no (dangling) symlink. In this way, if the call succeeds, the file returned is guaranteed to be new.
+    ///
+    /// This option is useful because it is atomic. Otherwise between checking whether a file exists and creating a new one, the file may have been created by another process (a TOCTOU race condition / attack).
+    ///
+    /// If .create_new(true) is set, [`create()`] and [`truncate()`] are ignored.
+    ///
+    /// [`create()`]: Self::create
+    /// [`truncate()`]: Self::truncate
+    pub fn create_new(&mut self, create_new: bool) -> &mut Self {
+        self.open_options.create_new(create_new);
+        self
+    }
+
+    /// Sets the compression level for archives.
+    ///
+    /// This configures the compression level used. This option has no effect for [`FileType::PlainText`].
+    /// See [`Compression`] for a description of the possible values.
+    pub fn compression_level(&mut self, compression_level: Compression) -> &mut Self {
+        self.compression_level = compression_level;
+        self
+    }
+
+    /// Sets the output filetype.
+    ///
+    /// This can be used to overwrite the automatically detected filetype.
+    pub fn filetype(&mut self, filetype: FileType) -> &mut Self {
+        self.filetype = Some(filetype);
+        self
+    }
+
+    /// Specify the maximal number of threads used for compression.
+    ///
+    /// This gives a hint to the encoder that threading is wanted. This feature is currently only used with `xz`.
+    /// The writer will use this value as a maximal number.
+    ///
+    /// Setting this value to `0` has the same effect as setting it to `1`.
+    pub fn threads(&mut self, threads: u8) -> &mut Self {
+        self.threads = if threads == 0 { 1 } else { threads };
+        self
+    }
+}
+
+/// Create writers for plaintext or compressed files.
+///
+/// This function can open a file with different compressors enabled.
+/// The options to open and write the file can be controlled with the [`WriteBuilder`].
+/// See the documentation on that type for more details.
+/// The filetype will be guessed from the extension.
+/// The guessing can be disabled by explicitly setting a filetype using [`WriteBuilder::filetype`].
+///
+/// File I/O will always be buffered using a [`BufReader`].
+///
+/// Flushing the writer will not write all the data to file.
+/// Archives require some finalizer which is only written if the writer is being dropped.
+pub fn file_write<P>(path: P) -> WriteBuilder
+where
+    P: AsRef<Path>,
+{
+    WriteBuilder::new(path.as_ref().to_path_buf())
 }
 
 /// Result type for [`parse_jsonl_multi_threaded`].
@@ -798,7 +775,7 @@ where
 /// The API mirrors the function in [`std::fs::read`] except for the error type.
 pub fn read<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, Error> {
     let mut buffer = Vec::new();
-    let mut reader = file_open_read_with_option_do(path.as_ref(), ReadOptions::default())?;
+    let mut reader = file_open_read(path.as_ref())?;
     reader.read_to_end(&mut buffer)?;
     Ok(buffer)
 }
@@ -810,7 +787,7 @@ pub fn read<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, Error> {
 /// The API mirrors the function in [`std::fs::read_to_string`] except for the error type.
 pub fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String, Error> {
     let mut buffer = String::new();
-    let mut reader = file_open_read_with_option_do(path.as_ref(), ReadOptions::default())?;
+    let mut reader = file_open_read(path.as_ref())?;
     reader.read_to_string(&mut buffer)?;
     Ok(buffer)
 }
@@ -823,32 +800,80 @@ pub fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String, Error> {
 /// The method will truncate the file before writing, such that `contents` will be the only content of the file.
 ///
 /// The API mirrors the function in [`std::fs::write`] except for the error type.
-
 // Required for no-default-features
 #[allow(clippy::match_single_binding)]
 pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(), Error> {
     let path = path.as_ref();
-    let mut options = WriteOptions::default();
-    options.open_options.truncate(true);
-    options = match path.extension().and_then(OsStr::to_str) {
-        #[cfg(feature = "file-xz")]
-        Some("xz") => options
-            .set_filetype(FileType::Xz)
-            .set_compression_level(Compression::Default),
-        #[cfg(feature = "file-gz")]
-        Some("gzip") | Some("gz") => options
-            .set_filetype(FileType::Gz)
-            .set_compression_level(Compression::Default),
-        #[cfg(feature = "file-bz2")]
-        Some("bzip") | Some("bz2") => options
-            .set_filetype(FileType::Bz2)
-            .set_compression_level(Compression::Default),
-        _ => options.set_filetype(FileType::PlainText),
-    };
 
-    let mut writer = file_open_write(path, options)?;
+    let mut writer = file_write(path).truncate()?;
     writer.write_all(contents.as_ref())?;
     writer.flush()?;
     drop(writer);
     Ok(())
+}
+
+/// Append the content to the file.
+///
+/// This function only works for plaintext and gzip files.
+// Required for no-default-features
+#[allow(clippy::match_single_binding)]
+pub fn append<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(), Error> {
+    let path = path.as_ref();
+    let mut writer = file_write(path).append()?;
+    writer.write_all(contents.as_ref())?;
+    writer.flush()?;
+    drop(writer);
+    Ok(())
+}
+
+/// Guess the [`FileType`] from the path extension
+///
+/// The function will error if a compressed extension is recognized but the corresponding `file-*` feature is not enabled.
+/// The function falls back to [`FileType::PlainText`] if the extension is not recognized.
+fn guess_file_type(path: &Path) -> Result<FileType, Error> {
+    Ok(match path.extension().and_then(OsStr::to_str) {
+        Some("xz") => {
+            #[cfg(feature = "file-xz")]
+            {
+                FileType::Xz
+            }
+            #[cfg(not(feature = "file-xz"))]
+            {
+                bail!(
+                    "Writing to a file {} with detected type `xz`, but the file-xz feature is not enabled.",
+                    path.display()
+                )
+            }
+        }
+
+        Some("gzip") | Some("gz") => {
+            #[cfg(feature = "file-gz")]
+            {
+                FileType::Gz
+            }
+            #[cfg(not(feature = "file-gz"))]
+            {
+                bail!(
+                    "Writing to a file {} with detected type `gz`, but the file-gz feature is not enabled.",
+                    path.display()
+                )
+            }
+        }
+
+        Some("bzip") | Some("bz2") => {
+            #[cfg(feature = "file-bz2")]
+            {
+                FileType::Bz2
+            }
+            #[cfg(not(feature = "file-bz2"))]
+            {
+                bail!(
+                    "Writing to a file {} with detected type `bz2`, but the file-bz2 feature is not enabled.",
+                    path.display()
+                )
+            }
+        }
+
+        _ => FileType::PlainText,
+    })
 }
