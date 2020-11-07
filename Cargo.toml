@@ -15,7 +15,6 @@ name = "misc_utils"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = "1.0.32"
 bzip2 = {version = "0.4.1", optional = true}
 flate2 = {version = "1.0", optional = true}
 log = "0.4"
@@ -39,6 +38,7 @@ file-xz = ["xz2"]
 jsonl = ["serde", "serde_json"]
 
 [dev-dependencies]
+anyhow = "1.0.34"
 pretty_assertions = "0.6"
 # Optional dev-dependencies are not a thing :(
 serde_derive = "1.0"

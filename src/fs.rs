@@ -65,10 +65,9 @@
 //!
 //! [JSONL]: http://jsonlines.org/
 
+use crate::error::Error;
 #[cfg(feature = "jsonl")]
 use crate::error::MtJsonlError;
-use crate::error::NotAFileError;
-use anyhow::{Context, Error};
 #[cfg(feature = "file-bz2")]
 use bzip2::{self, bufread::BzDecoder, write::BzEncoder};
 #[cfg(feature = "file-gz")]
@@ -94,10 +93,6 @@ use xz2::{
     stream::{Check, MtStreamBuilder},
     write::XzEncoder,
 };
-
-// This is unused when --all-features is given
-#[allow(unused_imports)]
-use anyhow::bail;
 
 /// Create reader for uncompressed or compressed files transparently.
 ///
@@ -138,7 +133,9 @@ where
 
 fn do_file_open_read(file: &Path, buffer_capacity: Option<usize>) -> Result<Box<dyn Read>, Error> {
     if !file.is_file() {
-        return Err(NotAFileError::new(file).into());
+        return Err(Error::NotAFileError {
+            path: file.to_path_buf(),
+        });
     }
 
     let f = OpenOptions::new()
@@ -146,7 +143,11 @@ fn do_file_open_read(file: &Path, buffer_capacity: Option<usize>) -> Result<Box<
         .read(true)
         .write(false)
         .open(file)
-        .context(format!("Could not open file {}", file.display()))?;
+        .map_err(|err| Error::FileIo {
+            file: file.to_path_buf(),
+            msg: "Could not open file.",
+            source: err,
+        })?;
     let mut bufread = if let Some(size) = buffer_capacity {
         BufReader::with_capacity(size, f)
     } else {
@@ -163,37 +164,41 @@ fn do_file_open_read(file: &Path, buffer_capacity: Option<usize>) -> Result<Box<
     // reset the read position
     bufread
         .seek(SeekFrom::Start(0))
-        .context("Failed to seek to start of file.")?;
+        .map_err(|err| Error::FileIo {
+            file: file.to_path_buf(),
+            msg: "Failed to seek to start of file.",
+            source: err,
+        })?;
 
     if buffer[..6] == [0xfd, b'7', b'z', b'X', b'Z', 0x00] {
         debug!("File {} is detected to have type `xz`", file.display());
         #[cfg(feature = "file-xz")]
         return Ok(Box::new(XzDecoder::new(bufread)));
         #[cfg(not(feature = "file-xz"))]
-        bail!(
-            "File {} is detected to have type `xz`, but the file-xz feature is not enabled.",
-            file.display()
-        );
+        return Err(Error::CompressionNotEnabled {
+            file: file.to_path_buf(),
+            technique: "xz",
+        });
     }
     if buffer[..2] == [0x1f, 0x8b] {
         debug!("File {} is detected to have type `gz`", file.display());
         #[cfg(feature = "file-gz")]
         return Ok(Box::new(MultiGzDecoder::new(bufread)));
         #[cfg(not(feature = "file-gz"))]
-        bail!(
-            "File {} is detected to have type `gz`, but the file-gz feature is not enabled.",
-            file.display()
-        );
+        return Err(Error::CompressionNotEnabled {
+            file: file.to_path_buf(),
+            technique: "gz",
+        });
     }
     if buffer[..3] == [b'B', b'Z', b'h'] {
         debug!("File {} is detected to have type `bz2`", file.display());
         #[cfg(feature = "file-bz2")]
         return Ok(Box::new(BzDecoder::new(bufread)));
         #[cfg(not(feature = "file-bz2"))]
-        bail!(
-            "File {} is detected to have type `bz2`, but the file-bz2 feature is not enabled.",
-            file.display()
-        );
+        return Err(Error::CompressionNotEnabled {
+            file: file.to_path_buf(),
+            technique: "bz2",
+        });
     }
 
     debug!("Open file {} as plaintext", file.display());
@@ -373,7 +378,6 @@ impl WriteBuilder {
     }
 
     /// Open the file in *truncate* mode.
-    ///
     pub fn truncate(&mut self) -> Result<Box<dyn Write>, Error> {
         self.open_options.truncate(true);
         self.open()
@@ -389,7 +393,11 @@ impl WriteBuilder {
         let file = self
             .open_options
             .open(&self.path)
-            .context(format!("Could not open file {}", self.path.display()))?;
+            .map_err(|err| Error::FileIo {
+                file: self.path.to_path_buf(),
+                msg: "Could not open file.",
+                source: err,
+            })?;
         let bufwrite = if let Some(size) = self.buffer_capacity {
             BufWriter::with_capacity(size, file)
         } else {
@@ -427,7 +435,10 @@ impl WriteBuilder {
                         .timeout_ms(300)
                         .check(Check::Crc64)
                         .encoder()
-                        .context("Failed to initialize the xz multithreaded stream")?;
+                        .map_err(|err| Error::XzError {
+                            file: self.path.to_path_buf(),
+                            source: err,
+                        })?;
                     Ok(Box::new(XzEncoder::new_stream(bufwrite, stream)))
                 }
             }
@@ -651,11 +662,7 @@ where
                     thread::current().id()
                 );
                 // cannot communicate channel failures
-                let _ = lines_sender.send(ProcessingStatus::Error(MtJsonlError::IoError {
-                    msg: "Background reading thread cannot open file".to_string(),
-                    file: path.to_path_buf(),
-                    source: err,
-                }));
+                let _ = lines_sender.send(ProcessingStatus::Error(err.into()));
                 return;
             }
         };
@@ -675,11 +682,14 @@ where
                             thread::current().id()
                         );
                         // cannot communicate channel failures
-                        let _ = lines_sender.send(ProcessingStatus::Error(MtJsonlError::IoError {
-                            msg: "Background reading thread cannot read line".to_string(),
-                            file: path.to_path_buf(),
-                            source: err.into(),
-                        }));
+                        let _ = lines_sender.send(ProcessingStatus::Error(
+                            Error::FileIo {
+                                file: path.to_path_buf(),
+                                msg: "Background reading thread cannot read line.",
+                                source: err,
+                            }
+                            .into(),
+                        ));
                         return;
                     }
                 }
@@ -776,7 +786,13 @@ where
 pub fn read<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, Error> {
     let mut buffer = Vec::new();
     let mut reader = file_open_read(path.as_ref())?;
-    reader.read_to_end(&mut buffer)?;
+    reader
+        .read_to_end(&mut buffer)
+        .map_err(|err| Error::FileIo {
+            file: path.as_ref().to_path_buf(),
+            msg: "Could not read file.",
+            source: err,
+        })?;
     Ok(buffer)
 }
 
@@ -786,9 +802,17 @@ pub fn read<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, Error> {
 ///
 /// The API mirrors the function in [`std::fs::read_to_string`] except for the error type.
 pub fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String, Error> {
+    let path = path.as_ref();
+
     let mut buffer = String::new();
-    let mut reader = file_open_read(path.as_ref())?;
-    reader.read_to_string(&mut buffer)?;
+    let mut reader = file_open_read(path)?;
+    reader
+        .read_to_string(&mut buffer)
+        .map_err(|err| Error::FileIo {
+            file: path.to_path_buf(),
+            msg: "Could not read file.",
+            source: err,
+        })?;
     Ok(buffer)
 }
 
@@ -806,8 +830,18 @@ pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(),
     let path = path.as_ref();
 
     let mut writer = file_write(path).truncate()?;
-    writer.write_all(contents.as_ref())?;
-    writer.flush()?;
+    writer
+        .write_all(contents.as_ref())
+        .map_err(|err| Error::FileIo {
+            file: path.to_path_buf(),
+            msg: "Could not write content to file.",
+            source: err,
+        })?;
+    writer.flush().map_err(|err| Error::FileIo {
+        file: path.to_path_buf(),
+        msg: "Could not write content to file.",
+        source: err,
+    })?;
     drop(writer);
     Ok(())
 }
@@ -819,9 +853,20 @@ pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(),
 #[allow(clippy::match_single_binding)]
 pub fn append<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(), Error> {
     let path = path.as_ref();
+
     let mut writer = file_write(path).append()?;
-    writer.write_all(contents.as_ref())?;
-    writer.flush()?;
+    writer
+        .write_all(contents.as_ref())
+        .map_err(|err| Error::FileIo {
+            file: path.to_path_buf(),
+            msg: "Could not append to file.",
+            source: err,
+        })?;
+    writer.flush().map_err(|err| Error::FileIo {
+        file: path.to_path_buf(),
+        msg: "Could not append to file.",
+        source: err,
+    })?;
     drop(writer);
     Ok(())
 }
@@ -831,49 +876,49 @@ pub fn append<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<()
 /// The function will error if a compressed extension is recognized but the corresponding `file-*` feature is not enabled.
 /// The function falls back to [`FileType::PlainText`] if the extension is not recognized.
 fn guess_file_type(path: &Path) -> Result<FileType, Error> {
-    Ok(match path.extension().and_then(OsStr::to_str) {
+    match path.extension().and_then(OsStr::to_str) {
         Some("xz") => {
             #[cfg(feature = "file-xz")]
             {
-                FileType::Xz
+                Ok(FileType::Xz)
             }
             #[cfg(not(feature = "file-xz"))]
             {
-                bail!(
-                    "Writing to a file {} with detected type `xz`, but the file-xz feature is not enabled.",
-                    path.display()
-                )
+                Err(Error::CompressionNotEnabled {
+                    file: path.to_path_buf(),
+                    technique: "xz",
+                })
             }
         }
 
         Some("gzip") | Some("gz") => {
             #[cfg(feature = "file-gz")]
             {
-                FileType::Gz
+                Ok(FileType::Gz)
             }
             #[cfg(not(feature = "file-gz"))]
             {
-                bail!(
-                    "Writing to a file {} with detected type `gz`, but the file-gz feature is not enabled.",
-                    path.display()
-                )
+                Err(Error::CompressionNotEnabled {
+                    file: path.to_path_buf(),
+                    technique: "gz",
+                })
             }
         }
 
         Some("bzip") | Some("bz2") => {
             #[cfg(feature = "file-bz2")]
             {
-                FileType::Bz2
+                Ok(FileType::Bz2)
             }
             #[cfg(not(feature = "file-bz2"))]
             {
-                bail!(
-                    "Writing to a file {} with detected type `bz2`, but the file-bz2 feature is not enabled.",
-                    path.display()
-                )
+                Err(Error::CompressionNotEnabled {
+                    file: path.to_path_buf(),
+                    technique: "bz2",
+                })
             }
         }
 
-        _ => FileType::PlainText,
-    })
+        _ => Ok(FileType::PlainText),
+    }
 }
