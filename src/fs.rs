@@ -358,7 +358,7 @@ impl WriteBuilder {
     /// See the individual methods for the available configuration options.
     pub fn new(path: PathBuf) -> Self {
         let mut open_options = OpenOptions::new();
-        open_options.read(false).write(true);
+        open_options.read(false).write(true).create(true);
 
         WriteBuilder {
             path,
@@ -467,7 +467,7 @@ impl WriteBuilder {
     ///
     /// This option is useful because it is atomic. Otherwise between checking whether a file exists and creating a new one, the file may have been created by another process (a TOCTOU race condition / attack).
     ///
-    /// If .create_new(true) is set, [`create()`] and [`truncate()`] are ignored.
+    /// If `.create_new(true)` is set, [`create()`] and [`truncate()`] are ignored.
     ///
     /// [`create()`]: Self::create
     /// [`truncate()`]: Self::truncate
