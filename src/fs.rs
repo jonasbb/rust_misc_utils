@@ -274,29 +274,25 @@ impl Default for Compression {
 }
 
 #[cfg(feature = "file-bz2")]
-impl Into<bzip2::Compression> for Compression {
-    fn into(self) -> bzip2::Compression {
-        use bzip2::Compression as BzipCompression;
-
-        match self {
-            Compression::Fastest => BzipCompression::fast(),
-            Compression::Default => BzipCompression::default(),
-            Compression::Best => BzipCompression::best(),
-            Compression::Numeric(n) => BzipCompression::new(clamp(u32::from(n), 0, 9)),
+impl From<Compression> for bzip2::Compression {
+    fn from(compression: Compression) -> Self {
+        match compression {
+            Compression::Fastest => bzip2::Compression::fast(),
+            Compression::Default => bzip2::Compression::default(),
+            Compression::Best => bzip2::Compression::best(),
+            Compression::Numeric(n) => bzip2::Compression::new(clamp(u32::from(n), 0, 9)),
         }
     }
 }
 
 #[cfg(feature = "file-gz")]
-impl Into<flate2::Compression> for Compression {
-    fn into(self) -> flate2::Compression {
-        use flate2::Compression as FlateCompression;
-
-        match self {
-            Compression::Fastest => FlateCompression::fast(),
-            Compression::Default => FlateCompression::default(),
-            Compression::Best => FlateCompression::best(),
-            Compression::Numeric(n) => FlateCompression::new(clamp(u32::from(n), 0, 9)),
+impl From<Compression> for flate2::Compression {
+    fn from(compression: Compression) -> Self {
+        match compression {
+            Compression::Fastest => flate2::Compression::fast(),
+            Compression::Default => flate2::Compression::default(),
+            Compression::Best => flate2::Compression::best(),
+            Compression::Numeric(n) => flate2::Compression::new(clamp(u32::from(n), 0, 9)),
         }
     }
 }
@@ -306,9 +302,9 @@ impl Into<flate2::Compression> for Compression {
 /// [`Compression`]: ./enum.Compression.html
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 struct XzCompression(u32);
-impl Into<XzCompression> for Compression {
-    fn into(self) -> XzCompression {
-        match self {
+impl From<Compression> for XzCompression {
+    fn from(compression: Compression) -> Self {
+        match compression {
             Compression::Fastest => XzCompression(0),
             Compression::Default => XzCompression(6),
             Compression::Best => XzCompression(9),
@@ -749,7 +745,6 @@ where
                             thread::current().id()
                         );
                         // kill on send error
-                        return;
                     }
                 }
             }
@@ -765,7 +760,6 @@ where
                     thread::current().id()
                 );
                 // kill on send error
-                return;
             }
         } else {
             warn!(
@@ -875,6 +869,9 @@ pub fn append<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<()
 ///
 /// The function will error if a compressed extension is recognized but the corresponding `file-*` feature is not enabled.
 /// The function falls back to [`FileType::PlainText`] if the extension is not recognized.
+
+// The warning triggers with --all-features as then all error conditions are removed.
+#[allow(clippy::unnecessary_wraps)]
 fn guess_file_type(path: &Path) -> Result<FileType, Error> {
     match path.extension().and_then(OsStr::to_str) {
         Some("xz") => {

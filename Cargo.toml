@@ -43,7 +43,7 @@ pretty_assertions = "0.6"
 # Optional dev-dependencies are not a thing :(
 serde_derive = "1.0"
 tempfile = "3.0"
-version-sync = "0.9.0"
+version-sync = "0.9.2"
 
 [package.metadata.docs.rs]
 # https://github.com/onur/docs.rs/pull/131
