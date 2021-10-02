@@ -552,7 +552,6 @@ where
     iter: mpsc::IntoIter<ProcessingStatus<Vec<Result<T, MtJsonlError>>>>,
     tmp_state: ::std::vec::IntoIter<Result<T, MtJsonlError>>,
     did_complete: bool,
-    file: PathBuf,
 }
 
 #[cfg(feature = "jsonl")]
@@ -560,15 +559,11 @@ impl<T> MtJsonl<T>
 where
     T: 'static + DeserializeOwned + Send,
 {
-    fn new<F>(iter: mpsc::IntoIter<ProcessingStatus<Vec<Result<T, MtJsonlError>>>>, file: F) -> Self
-    where
-        F: AsRef<Path>,
-    {
+    fn new(iter: mpsc::IntoIter<ProcessingStatus<Vec<Result<T, MtJsonlError>>>>) -> Self {
         Self {
             iter,
             tmp_state: vec![].into_iter(),
             did_complete: false,
-            file: file.as_ref().to_path_buf(),
         }
     }
 }
@@ -632,7 +627,6 @@ where
     T: 'static + DeserializeOwned + Send,
 {
     let path = path.as_ref().to_path_buf();
-    let path_ = path.clone();
     const CHAN_BUFSIZE: usize = 2;
 
     // create channels
@@ -769,7 +763,7 @@ where
         }
     });
 
-    MtJsonl::new(struct_receiver.into_iter(), path_)
+    MtJsonl::new(struct_receiver.into_iter())
 }
 
 /// Read the entire contents of a file into a bytes vector.
