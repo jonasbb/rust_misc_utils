@@ -1,5 +1,3 @@
-extern crate misc_utils;
-
 use misc_utils::Max;
 
 #[test]

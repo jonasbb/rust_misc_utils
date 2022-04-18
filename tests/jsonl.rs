@@ -1,13 +1,7 @@
 #![cfg(feature = "jsonl")]
 
-extern crate misc_utils;
-#[macro_use]
-extern crate pretty_assertions;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-
 use misc_utils::fs::parse_jsonl_multi_threaded;
+use serde::Deserialize;
 
 #[derive(Debug, Eq, PartialEq, Deserialize)]
 enum Value {

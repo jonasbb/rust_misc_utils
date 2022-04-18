@@ -13,7 +13,6 @@
 //! The example shows how to read a file into a string:
 //!
 //! ```no_run
-//! # extern crate misc_utils;
 //! # use misc_utils::fs::file_open_read;
 //! #
 //! # fn main() {
