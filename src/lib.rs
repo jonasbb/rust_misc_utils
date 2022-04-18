@@ -1,5 +1,5 @@
 #![warn(
-    // clippy::semicolon_if_nothing_returned,
+    clippy::semicolon_if_nothing_returned,
     missing_copy_implementations,
     missing_crate_level_docs,
     missing_debug_implementations,
@@ -29,3 +29,7 @@ mod minmax;
 pub mod path;
 
 pub use crate::minmax::{Max, Min};
+
+pub fn check() {
+    vec!(1, 2, 3, 4, 5).resize(0, 5)
+}
