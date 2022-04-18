@@ -1,8 +1,11 @@
-#![deny(
-    missing_debug_implementations,
+#![warn(
+    // clippy::semicolon_if_nothing_returned,
     missing_copy_implementations,
+    missing_crate_level_docs,
+    missing_debug_implementations,
     missing_docs,
     rust_2018_compatibility,
+    rust_2021_compatibility,
     trivial_casts,
     trivial_numeric_casts,
     unused_extern_crates,
