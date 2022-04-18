@@ -20,12 +20,51 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           components: clippy
+      - name: Install SARIF tools
+        run: cargo install --git https://github.com/jonasbb/sarif-rs clippy-sarif
+
       - name: clippy "No Default Features" (${{ matrix.os }} / ${{ matrix.rust }})
-        run: cargo clippy --workspace --no-default-features --all-targets
+        run:
+          cargo clippy
+            --workspace
+            --no-default-features
+            --all-targets
+            --message-format=json-diagnostic-rendered-ansi 2>/dev/null |
+          clippy-sarif --emit-rendered-diagnostics >./rust-clippy-no-default-features.sarif
+        continue-on-error: true
       - name: clippy "Default" (${{ matrix.os }} / ${{ matrix.rust }})
-        run: cargo clippy --workspace --all-targets
+        run:
+          cargo clippy
+            --workspace
+            --all-targets
+            --message-format=json-diagnostic-rendered-ansi 2>/dev/null |
+          clippy-sarif --emit-rendered-diagnostics >./rust-clippy-default.sarif
+        continue-on-error: true
       - name: clippy "All Features" (${{ matrix.os }} / ${{ matrix.rust }})
-        run: cargo clippy --workspace --all-features --all-targets
+        run:
+          cargo clippy
+            --workspace
+            --all-features
+            --all-targets
+            --message-format=json-diagnostic-rendered-ansi 2>/dev/null |
+          clippy-sarif --emit-rendered-diagnostics >./rust-clippy-all-features.sarif
+        continue-on-error: true
+
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: rust-clippy-no-default-features.sarif
+          wait-for-processing: true
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: rust-clippy-default.sarif
+          wait-for-processing: true
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: rust-clippy-all-features.sarif
+          wait-for-processing: true
 
   rustfmt:
     name: Rustfmt
