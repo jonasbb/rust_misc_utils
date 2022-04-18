@@ -47,6 +47,16 @@ pub enum Error {
         #[source]
         source: xz2::stream::Error,
     },
+    /// Error when joining an async task
+    ///
+    /// This variant only exists if the `async-fs` feature is enabled.
+    #[cfg(feature = "async-fs")]
+    #[error("Failed to join Tokio task")]
+    JoinError {
+        /// Original cause of the error
+        #[from]
+        source: tokio::task::JoinError,
+    },
 }
 
 /// Error value for elements returned by [`MtJsonl`](crate::fs::MtJsonl).
