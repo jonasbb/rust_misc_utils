@@ -20,11 +20,11 @@
 //! * interact with the filesystem in `fs`
 //! * process line-separated JSON data
 
+#[cfg(feature = "async-fs")]
+pub mod async_fs;
 pub mod error;
 pub mod fs;
 mod minmax;
 pub mod path;
-#[cfg(feature = "async-fs")]
-pub mod async_fs;
 
 pub use crate::minmax::{Max, Min};
