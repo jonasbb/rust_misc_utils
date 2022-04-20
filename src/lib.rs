@@ -1,10 +1,9 @@
 #![warn(
-    // clippy::semicolon_if_nothing_returned,
     missing_copy_implementations,
-    missing_crate_level_docs,
     missing_debug_implementations,
     missing_docs,
     rust_2018_compatibility,
+    rust_2018_idioms,
     rust_2021_compatibility,
     trivial_casts,
     trivial_numeric_casts,
@@ -13,7 +12,10 @@
     unused_qualifications,
     variant_size_differences
 )]
-#![warn(rust_2018_idioms)]
+#![warn(
+    clippy::semicolon_if_nothing_returned,
+    rustdoc::missing_crate_level_docs
+)]
 #![doc(html_root_url = "https://docs.rs/misc_utils/4.0.1")]
 
 //! This crate contains miscellaneous utility functions
