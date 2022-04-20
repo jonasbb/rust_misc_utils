@@ -16,7 +16,7 @@
     clippy::semicolon_if_nothing_returned,
     rustdoc::missing_crate_level_docs
 )]
-#![doc(html_root_url = "https://docs.rs/misc_utils/4.0.1")]
+#![doc(html_root_url = "https://docs.rs/misc_utils/4.1.0")]
 
 //! This crate contains miscellaneous utility functions
 //!
