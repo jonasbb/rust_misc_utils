@@ -116,7 +116,7 @@ impl<'a> Iterator for PathExtensions<'a> {
             if let Some(new_filestem) = new_filestem {
                 self.0 = Path::new(new_filestem);
             } else {
-                self.0 = Path::new("")
+                self.0 = Path::new("");
             };
             new_extension
         }

@@ -8,7 +8,7 @@ license = "Unlicense"
 name = "misc_utils"
 readme = "README.md"
 repository = "https://github.com/jonasbb/rust_misc_utils"
-version = "4.0.1"
+version = "4.1.0"
 
 [lib]
 name = "misc_utils"
