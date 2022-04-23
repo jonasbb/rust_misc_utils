@@ -26,3 +26,7 @@ mod minmax;
 pub mod path;
 
 pub use crate::minmax::{Max, Min};
+
+fn unused() {
+    vec![1, 2, 3, 4, 5].resize(0, 5);
+}
