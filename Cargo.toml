@@ -47,6 +47,7 @@ xz2 = {version = "0.1", optional = true}
 
 [dev-dependencies]
 anyhow = "1.0.34"
+expect-test = "1.2.2"
 pretty_assertions = "1.0"
 # Optional dev-dependencies are not a thing :(
 serde.features = ["derive"]
