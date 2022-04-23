@@ -52,8 +52,8 @@ jobs:
 
       - name: Merge SARIF files
         run: |
-          dotnet tool install --global Sarif.Multitool
-          sarif merge --force --merge-runs --merge-empty-logs --recurse ./rust-clippy*.sarif --output-file=./rust-clippy.sarif
+          cargo install --git https://github.com/jonasbb/sarif-rs --branch sarif-merge sarif-merge
+          sarif-merge --output=./rust-clippy.sarif ./rust-clippy-*.sarif
       - name: Upload analysis results to GitHub
         uses: github/codeql-action/upload-sarif@v1
         with:
