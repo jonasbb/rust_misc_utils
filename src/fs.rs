@@ -131,10 +131,27 @@ where
 }
 
 fn do_file_open_read(file: &Path, buffer_capacity: Option<usize>) -> Result<Box<dyn Read>, Error> {
+    #[cfg(not(unix))]
     if !file.is_file() {
         return Err(Error::NotAFileError {
             path: file.to_path_buf(),
         });
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::prelude::FileTypeExt;
+        let ft = std::fs::metadata(file)
+            .map_err(|err| Error::FileIo {
+                file: file.to_path_buf(),
+                msg: "Accessing file metadata failed.",
+                source: err,
+            })?
+            .file_type();
+        if !(ft.is_file() || ft.is_char_device() || ft.is_fifo()) {
+            return Err(Error::NotAFileError {
+                path: file.to_path_buf(),
+            });
+        }
     }
 
     let f = OpenOptions::new()
