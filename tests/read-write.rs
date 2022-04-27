@@ -267,3 +267,10 @@ fn test_append_file_gz() -> Result<(), Error> {
 
     do_read_test("Hello World\n", tmpfile.path())
 }
+
+#[cfg_attr(not(unix), ignore)]
+#[test]
+fn test_read_dev_null() -> Result<(), Error> {
+    fs::read_to_string("/dev/null")?;
+    Ok(())
+}
