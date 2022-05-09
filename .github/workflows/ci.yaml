@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rust-lang/setup-rust-toolchain@main
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
           components: clippy
@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rust-lang/setup-rust-toolchain@main
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt
       - name: Rustfmt Check
@@ -92,7 +92,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rust-lang/setup-rust-toolchain@main
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
 
@@ -100,10 +100,6 @@ jobs:
       # cargo test --all-targets does NOT run doctests
       # since doctests are important this should not be added
       # https://github.com/rust-lang/cargo/issues/6669
-      #
-      # We need to specify the manifest path, such that cargo knows where to apply the `no-default-features`.
-      # This is no longer necessary for Rust 1.51 or resolver="2"
-      # https://doc.rust-lang.org/nightly/cargo/reference/features.html#resolver-version-2-command-line-flags
       - name: "Test Build (No Default Features / ${{ matrix.os }} / ${{ matrix.rust }})"
         run: cargo test --no-default-features --no-run
       - name: "Test Run (No Default Features / ${{ matrix.os }} / ${{ matrix.rust }})"
@@ -117,7 +113,7 @@ jobs:
       - name: "Test Build (All Features / ${{ matrix.os }} / ${{ matrix.rust }})"
         run: cargo test --all-features  --no-run
       - name: "Test Run (All Features / ${{ matrix.os }} / ${{ matrix.rust }})"
-        run: cargo test --all-features --no-default-features --no-fail-fast
+        run: cargo test --all-features --no-fail-fast
 
   # Added to summarize the matrix (otherwise we would need to list every single
   # job in bors.toml)
