@@ -2,22 +2,26 @@ name: Security audit
 on:
   pull_request:
     paths:
-      - 'Cargo.toml'
-      - '**/Cargo.toml'
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
   # Bors related branches
   push:
     branches:
-    - master
-    - staging
-    - trying
+      - master
+      - staging
+      - trying
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
+
+permissions: read-all
+
 jobs:
   security_audit:
     name: Rustsec Audit
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/audit-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions-rust-lang/audit@v1
+        name: Audit Rust Dependencies
