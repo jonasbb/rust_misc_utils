@@ -25,3 +25,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions-rust-lang/audit@v1
         name: Audit Rust Dependencies
+        with:
+          # RUSTSEC-2021-0139: ansi_term is Unmaintained
+          # Transitive dependency of pretty_assertions
+          ignore: RUSTSEC-2021-0139
