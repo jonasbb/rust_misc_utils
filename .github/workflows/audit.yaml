@@ -23,7 +23,7 @@ jobs:
       issues: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/audit@v1
+      - uses: actions-rust-lang/audit@more-debug-logging
         name: Audit Rust Dependencies
         with:
           # RUSTSEC-2021-0139: ansi_term is Unmaintained
