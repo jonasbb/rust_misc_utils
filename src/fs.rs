@@ -68,9 +68,9 @@ use crate::error::Error;
 #[cfg(feature = "jsonl")]
 use crate::error::MtJsonlError;
 #[cfg(feature = "file-bz2")]
-use bzip2::{self, bufread::BzDecoder, write::BzEncoder};
+use bzip2::{bufread::BzDecoder, write::BzEncoder};
 #[cfg(feature = "file-gz")]
-use flate2::{self, bufread::MultiGzDecoder, write::GzEncoder};
+use flate2::{bufread::MultiGzDecoder, write::GzEncoder};
 use log::debug;
 #[cfg(feature = "jsonl")]
 use log::{info, warn};
@@ -739,7 +739,7 @@ where
                 // not the success status for future use
                 ProcessingStatus::Completed => channel_successful_completed = true,
                 ProcessingStatus::Data(batch) => {
-                    let batch: Vec<Result<T, MtJsonlError>> = Deserializer::from_str(&*batch)
+                    let batch: Vec<Result<T, MtJsonlError>> = Deserializer::from_str(&batch)
                         .into_iter()
                         .map(|v| v.map_err(|err| MtJsonlError::ParsingError { source: err }))
                         .collect();

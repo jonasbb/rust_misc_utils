@@ -1,7 +1,6 @@
 use num_traits::Bounded;
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
-    iter::FromIterator,
     str::FromStr,
 };
 
