@@ -566,7 +566,7 @@ where
     T: 'static + DeserializeOwned + Send,
 {
     iter: mpsc::IntoIter<ProcessingStatus<Vec<Result<T, MtJsonlError>>>>,
-    tmp_state: ::std::vec::IntoIter<Result<T, MtJsonlError>>,
+    tmp_state: std::vec::IntoIter<Result<T, MtJsonlError>>,
     did_complete: bool,
 }
 
