@@ -434,7 +434,7 @@ impl WriteBuilder {
             #[cfg(feature = "file-xz")]
             Xz => {
                 let level: XzCompression = self.compression_level.into();
-                let threads = clamp(self.threads, 1, u8::max_value());
+                let threads = clamp(self.threads, 1, u8::MAX);
                 if threads == 1 {
                     Ok(Box::new(XzEncoder::new(bufwrite, level.0)))
                 } else {

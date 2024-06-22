@@ -4,7 +4,7 @@ use misc_utils::Max;
 fn test_max_usize() {
     let mut m = Max::default();
     assert_eq!(None, m.get_max());
-    assert_eq!(usize::min_value(), m.get_max_extreme());
+    assert_eq!(usize::MIN, m.get_max_extreme());
 
     m.update(100);
     assert_eq!(Some(100), m.get_max());
@@ -21,7 +21,7 @@ fn test_max_usize() {
 fn test_max_isize() {
     let mut m = Max::default();
     assert_eq!(None, m.get_max());
-    assert_eq!(isize::min_value(), m.get_max_extreme());
+    assert_eq!(isize::MIN, m.get_max_extreme());
 
     m.update(-5);
     assert_eq!(Some(-5), m.get_max());
