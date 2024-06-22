@@ -4,7 +4,7 @@ use misc_utils::Min;
 fn test_min_usize() {
     let mut m = Min::default();
     assert_eq!(None, m.get_min());
-    assert_eq!(usize::max_value(), m.get_min_extreme());
+    assert_eq!(usize::MAX, m.get_min_extreme());
 
     m.update(999);
     assert_eq!(Some(999), m.get_min());
@@ -21,7 +21,7 @@ fn test_min_usize() {
 fn test_min_isize() {
     let mut m = Min::default();
     assert_eq!(None, m.get_min());
-    assert_eq!(isize::max_value(), m.get_min_extreme());
+    assert_eq!(isize::MAX, m.get_min_extreme());
 
     m.update(999);
     assert_eq!(Some(999), m.get_min());
