@@ -167,13 +167,13 @@ fn test_pathbuf_extensions() {
 fn test_add_extension() {
     let mut pb = PathBuf::from("some.file");
     assert_eq!(pb, Path::new("some.file"));
-    assert!(pb.add_extension("a"));
+    assert!(PathBufExt::add_extension(&mut pb, "a"));
     assert_eq!(pb, Path::new("some.file.a"));
-    assert!(pb.add_extension("b"));
+    assert!(PathBufExt::add_extension(&mut pb, "b"));
     assert_eq!(pb, Path::new("some.file.a.b"));
-    assert!(pb.add_extension("c"));
+    assert!(PathBufExt::add_extension(&mut pb, "c"));
     assert_eq!(pb, Path::new("some.file.a.b.c"));
 
     let mut pb = PathBuf::from("/");
-    assert!(!pb.add_extension("ext"));
+    assert!(!PathBufExt::add_extension(&mut pb, "ext"));
 }
