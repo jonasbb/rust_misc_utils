@@ -38,8 +38,6 @@ pub async fn read_to_string(path: impl AsRef<Path>) -> Result<String, Error> {
 ///
 /// The API mirrors the function in [`tokio::fs::write`] but is implemented via [`crate::fs::write`].
 pub async fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<(), Error> {
-    // TODO: Should probably use scoped tasks, if they become available
-    // https://github.com/tokio-rs/tokio/issues/3162
     let path = path.as_ref().to_owned();
     let contents = contents.as_ref().to_owned();
     tokio::task::spawn_blocking(move || crate::fs::write(path, contents)).await?
@@ -51,8 +49,6 @@ pub async fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result
 ///
 /// The function is similar to [`write()`] but will append the content to the end of the file instead of truncating.
 pub async fn append(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<(), Error> {
-    // TODO: Should probably use scoped tasks, if they become available
-    // https://github.com/tokio-rs/tokio/issues/3162
     let path = path.as_ref().to_owned();
     let contents = contents.as_ref().to_owned();
     tokio::task::spawn_blocking(move || crate::fs::append(path, contents)).await?

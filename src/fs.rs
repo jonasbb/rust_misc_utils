@@ -296,7 +296,7 @@ impl From<Compression> for bzip2::Compression {
             Compression::Fastest => bzip2::Compression::fast(),
             Compression::Default => bzip2::Compression::default(),
             Compression::Best => bzip2::Compression::best(),
-            Compression::Numeric(n) => bzip2::Compression::new(clamp(u32::from(n), 0, 9)),
+            Compression::Numeric(n) => bzip2::Compression::new(Ord::clamp(u32::from(n), 0, 9)),
         }
     }
 }
@@ -308,7 +308,7 @@ impl From<Compression> for flate2::Compression {
             Compression::Fastest => flate2::Compression::fast(),
             Compression::Default => flate2::Compression::default(),
             Compression::Best => flate2::Compression::best(),
-            Compression::Numeric(n) => flate2::Compression::new(clamp(u32::from(n), 0, 9)),
+            Compression::Numeric(n) => flate2::Compression::new(Ord::clamp(u32::from(n), 0, 9)),
         }
     }
 }
@@ -316,28 +316,19 @@ impl From<Compression> for flate2::Compression {
 /// Implementation detail to convert a [`Compression`] into a `u32` in the range `0-9` (inclusive).
 ///
 /// [`Compression`]: ./enum.Compression.html
+#[cfg(feature = "file-xz")]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 struct XzCompression(u32);
+
+#[cfg(feature = "file-xz")]
 impl From<Compression> for XzCompression {
     fn from(compression: Compression) -> Self {
         match compression {
             Compression::Fastest => XzCompression(0),
             Compression::Default => XzCompression(6),
             Compression::Best => XzCompression(9),
-            Compression::Numeric(n) => XzCompression(clamp(u32::from(n), 0, 9)),
+            Compression::Numeric(n) => XzCompression(Ord::clamp(u32::from(n), 0, 9)),
         }
-    }
-}
-
-// TODO consider using num for this
-// https://docs.rs/num/0.1.40/num/fn.clamp.html
-fn clamp<T: PartialOrd>(input: T, min: T, max: T) -> T {
-    if input < min {
-        min
-    } else if input > max {
-        max
-    } else {
-        input
     }
 }
 
@@ -434,7 +425,7 @@ impl WriteBuilder {
             #[cfg(feature = "file-xz")]
             Xz => {
                 let level: XzCompression = self.compression_level.into();
-                let threads = clamp(self.threads, 1, u8::MAX);
+                let threads = Ord::clamp(self.threads, 1, u8::MAX);
                 if threads == 1 {
                     Ok(Box::new(XzEncoder::new(bufwrite, level.0)))
                 } else {
