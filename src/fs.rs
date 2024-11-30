@@ -870,7 +870,7 @@ pub fn append<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<()
 ///
 /// The function will error if a compressed extension is recognized but the corresponding `file-*` feature is not enabled.
 /// The function falls back to [`FileType::PlainText`] if the extension is not recognized.
-
+//
 // The warning triggers with --all-features as then all error conditions are removed.
 #[allow(clippy::unnecessary_wraps)]
 fn guess_file_type(path: &Path) -> Result<FileType, Error> {
