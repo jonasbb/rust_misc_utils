@@ -47,6 +47,7 @@ pub use crate::minmax::{Max, Min};
 /// assert_eq!(expected, misc_utils::byteascii::byteascii(&bytes));
 /// ```
 pub mod byteascii {
+    use std::cmp::PartialEq;
     use std::fmt;
 
     // Map each byte to its escaped version
@@ -111,6 +112,17 @@ pub mod byteascii {
             Ok(())
         }
     }
+
+    impl<B> PartialEq for ByteAscii<B>
+    where
+        B: PartialEq,
+    {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.eq(&other.0)
+        }
+    }
+
+    impl<B> Eq for ByteAscii<B> where B: Eq {}
 
     #[test]
     fn test_byteascii() {
