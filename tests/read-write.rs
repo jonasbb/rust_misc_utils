@@ -1,4 +1,5 @@
 use anyhow::Error;
+use misc_utils::byteascii::ByteAscii;
 #[cfg(any(feature = "file-gz", feature = "file-xz", feature = "file-bz2"))]
 use misc_utils::fs::Compression;
 use misc_utils::fs::{self, file_open_read, file_write};
@@ -23,7 +24,7 @@ fn assert_file_eq(expected_file: &Path, actual_file: &Path) -> Result<(), Error>
     let mut actual_file = File::open(actual_file)?;
     expected_file.read_to_end(&mut expected_content)?;
     actual_file.read_to_end(&mut actual_content)?;
-    assert_eq!(expected_content, actual_content);
+    assert_eq!(ByteAscii(expected_content), ByteAscii(actual_content));
     Ok(())
 }
 
