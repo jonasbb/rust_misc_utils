@@ -78,12 +78,10 @@ use log::{info, warn};
 use serde::de::DeserializeOwned;
 #[cfg(feature = "jsonl")]
 use serde_json::Deserializer;
-use std::{
-    ffi::OsStr,
-    fs::OpenOptions,
-    io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
-};
+use std::ffi::OsStr;
+use std::fs::OpenOptions;
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::path::{Path, PathBuf};
 #[cfg(feature = "jsonl")]
 use std::{io::BufRead, sync::mpsc, thread};
 #[cfg(feature = "file-xz")]
@@ -588,7 +586,7 @@ where
                 return Some(match res {
                     Ok(x) => Ok(x),
                     Err(err) => {
-                        info!("{:?}", err);
+                        info!("{err:?}");
                         Err(err)
                     }
                 });
@@ -764,7 +762,8 @@ where
             }
         } else {
             warn!(
-                "Background parsing thread: did not receive complete message from underlying reader {:?}",
+                "Background parsing thread: did not receive complete message from underlying \
+                 reader {:?}",
                 thread::current().id()
             );
         }

@@ -2,7 +2,8 @@
 //!
 //! See the description of the individual error types for more details.
 
-use std::{io, path::PathBuf};
+use std::io;
+use std::path::PathBuf;
 
 /// Error type for misc_utils crate.
 ///

@@ -1,8 +1,6 @@
 use num_traits::Bounded;
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    str::FromStr,
-};
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::str::FromStr;
 
 /// Helper type to ensure to calculate a minimal value
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -92,7 +90,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if let Some(v) = &self.value {
-            write!(f, "{}", v)
+            write!(f, "{v}")
         } else {
             write!(f, "<uninitialized>")
         }
@@ -198,7 +196,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if let Some(v) = &self.value {
-            write!(f, "{}", v)
+            write!(f, "{v}")
         } else {
             write!(f, "<uninitialized>")
         }

@@ -4,7 +4,9 @@ use misc_utils::byteascii::ByteAscii;
 use misc_utils::fs::Compression;
 use misc_utils::fs::{self, file_open_read, file_write};
 use pretty_assertions::assert_eq;
-use std::{fs::File, io::prelude::*, path::Path};
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
 use tempfile::Builder;
 
 const LOREM_IPSUM: &str = r#"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
