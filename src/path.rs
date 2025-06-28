@@ -1,9 +1,7 @@
 //! This module contains functions for file system path manipulation.
 
-use std::{
-    ffi::{OsStr, OsString},
-    path::{Path, PathBuf},
-};
+use std::ffi::{OsStr, OsString};
+use std::path::{Path, PathBuf};
 
 /// This traits extends the available methods on [`Path`].
 pub trait PathExt {
