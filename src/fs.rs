@@ -204,7 +204,7 @@ fn do_file_open_read(file: &Path, buffer_capacity: Option<usize>) -> Result<Box<
             technique: "gz",
         });
     }
-    if buffer[..3] == [b'B', b'Z', b'h'] {
+    if buffer[..3] == *b"BZh" {
         debug!("File {} is detected to have type `bz2`", file.display());
         #[cfg(feature = "file-bz2")]
         return Ok(Box::new(BzDecoder::new(bufread)));
