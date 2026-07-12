@@ -5,7 +5,7 @@
 use std::io;
 use std::path::PathBuf;
 
-/// Error type for misc_utils crate.
+/// Error type for `misc_utils` crate.
 ///
 /// Please see the individual variants for details.
 #[non_exhaustive]
@@ -17,14 +17,14 @@ pub enum Error {
         /// Path
         path: PathBuf,
     },
-    /// Wrapper around [io::Error]
+    /// Wrapper around [`io::Error`]
     #[error("{msg} while operating on file {}", file.display())]
     FileIo {
         /// File which caused the error
         file: PathBuf,
         /// Message describing what went wrong
         msg: &'static str,
-        /// Underlying source [io::Error]
+        /// Underlying source [`io::Error`]
         #[source]
         source: io::Error,
     },

@@ -339,7 +339,7 @@ pub struct WriteBuilder {
     ///
     /// Ignored for [`FileType::PlainText`].
     compression_level: Compression,
-    /// FileType of the new file.
+    /// `FileType` of the new file.
     ///
     /// The filetype is guessed from the file extensions using [`guess_file_type`].
     filetype: Option<FileType>,
@@ -366,8 +366,8 @@ impl WriteBuilder {
             filetype: None,
             open_options,
 
-            buffer_capacity: Default::default(),
-            compression_level: Default::default(),
+            buffer_capacity: Option::default(),
+            compression_level: Compression::default(),
             threads: 1,
         }
     }

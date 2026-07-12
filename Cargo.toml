@@ -59,3 +59,31 @@ version-sync = "0.9.2"
 # https://github.com/onur/docs.rs/pull/131
 all-features = true
 default-target = "x86_64-unknown-linux-gnu"
+
+[lints.rust]
+missing_docs = "warn"
+rust_2018_idioms = {level = "warn", priority = -1}
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unused_extern_crates = "warn"
+unused_import_braces = "warn"
+unused_qualifications = "warn"
+variant_size_differences = "warn"
+unsafe_code = "forbid"
+unexpected_cfgs = {level = "warn", check-cfg = [
+    'cfg(tarpaulin)',
+    'cfg(tarpaulin_include)',
+]}
+
+[lints.clippy]
+# alloc_instead_of_core = "warn"
+# Checks for usage of `cloned()` on an `Iterator` or `Option` where `copied()` could be used instead.
+cloned_instead_of_copied = "warn"
+# Checks for literal calls to `Default::default()`.
+default_trait_access = "warn"
+# Checks for the presence of `_`, `::` or camel-case words outside ticks in documentation.
+# Disabled due to FP: https://github.com/rust-lang/rust-clippy/issues/12075
+doc_markdown = "warn"
+# Checks for closures which only invoke a method on the closure argument and can be replaced by referencing the method directly.
+redundant_closure_for_method_calls = "warn"
+semicolon_if_nothing_returned = "warn"
