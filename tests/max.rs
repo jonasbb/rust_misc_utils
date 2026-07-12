@@ -1,3 +1,5 @@
+//! Test `Max` type and its functionality
+
 use misc_utils::Max;
 
 #[test]
