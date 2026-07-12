@@ -64,7 +64,7 @@ fn test_read_complex_type() {
         _ => panic!("Second value must be Data"),
     }
     // assert finished completely
-    assert!(iter.next().is_none())
+    assert!(iter.next().is_none());
 }
 
 #[test]
@@ -87,5 +87,5 @@ fn test_read_broken_json() {
         panic!("Second value must be ParsingError")
     }
     // assert finished completely
-    assert!(iter.next().is_none())
+    assert!(iter.next().is_none());
 }
