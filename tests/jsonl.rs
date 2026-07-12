@@ -1,3 +1,5 @@
+//! Tests for the jsonl functionality
+
 #![cfg(feature = "jsonl")]
 
 use misc_utils::fs::parse_jsonl_multi_threaded;

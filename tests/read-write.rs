@@ -1,3 +1,5 @@
+//! Tests for the read/write functionality including transparent compression
+
 use anyhow::Error;
 use misc_utils::byteascii::ByteAscii;
 #[cfg(any(feature = "file-gz", feature = "file-xz", feature = "file-bz2"))]

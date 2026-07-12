@@ -1,3 +1,5 @@
+//! Test `Min` type and its functionality
+
 use misc_utils::Min;
 
 #[test]
